@@ -4,7 +4,7 @@ apiVersion: plugin.halo.run/v1alpha1
 kind: Plugin
 metadata:
   # The name defines how the plugin is invoked, A unique name
-  name: starter
+  name: coverImage
 spec:
   enabled: true
   requires: ">=2.20.0"
@@ -15,6 +15,8 @@ spec:
   homepage: https://github.com/acanyo/plugin-coverImage#readme
   repo: https://github.com/acanyo/plugin-coverImage
   issues: https://github.com/acanyo/plugin-coverImage/issues
+  settingName: plugin-coverImage-settings
+  configMapName: plugin-coverImage-configmap
   displayName: "封面图"
   description: "为你的halo文章提供默认封面图功能"
   license:

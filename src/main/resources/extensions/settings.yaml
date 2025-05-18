@@ -1,0 +1,102 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: plugin-coverImage-settings
+spec:
+  forms:
+    - group: basic
+      label: 基本设置
+      formSchema:
+        - $el: a
+          attrs:
+            href: "https://docs.lik.cc/"
+            class: "py-4 block"
+            target: "_blank"
+            style:
+              color: "#1890ff"
+              fontSize: "0.875em"
+              display: "flex"
+              align-items: "center"
+          children:
+            - $el: span
+              children: "查看 封面图 帮助文档"
+            - $el: img
+              attrs:
+                src: "/plugins/bingeWatching/assets/static/img/link.svg"
+                width: "14px"
+                height: "14px"
+                style:
+                  margin-left: "4px"
+        - $el: span
+          children: "加入交流群"
+        - $el: img
+          attrs:
+            src: "https://www.lik.cc/upload/iShot_2025-03-03_16.03.00.png"
+            width: "100px"
+            height: "120px"
+            style:
+              margin-left: "80px"
+        - $formkit: checkbox
+          label: 开启图片转存
+          name: enablePicDump
+          id: enablePicDump
+          key: enablePicDump
+          value: true
+          help: "为了防止源站图片失效最好将图片保存至Halo附件库"
+        - $formkit: select
+          if: $get(enablePicDump).value == true
+          name: fileGroup
+          key: fileGroup
+          id: fileGroup
+          label: 附件存储策略
+          searchable: true
+          help: "用于指定图片转存上传的默认附件存储策略"
+          action: /apis/storage.halo.run/v1alpha1/groups?labelSelector=%21halo.run%2Fhidden&sort=metadata.creationTimestamp%2Cdesc
+          requestOption:
+            method: GET
+            pageField: page
+            sizeField: size
+            totalField: total
+            itemsField: items
+            labelField: spec.displayName
+            valueField: metadata.name
+        - $formkit: select
+          if: $get(enablePicDump).value == true
+          name: filePolicy
+          key: filePolicy
+          id: filePolicy
+          label: 附件存储组
+          searchable: true
+          help: "用于指定图片转存上传的默认附件存储分组"
+          action: /apis/storage.halo.run/v1alpha1/policies
+          requestOption:
+            method: GET
+            pageField: page
+            sizeField: size
+            totalField: total
+            itemsField: items
+            labelField: spec.displayName
+            valueField: metadata.name
+        - $formkit: select
+          name: imgType
+          key: imgType
+          id: imgType
+          label: 封面图来源
+          validation: required
+          value: "firstPostImg"
+          placeholder: 请选择你的主题
+          options:
+            - label: 文章获取首图
+              value: firstPostImg
+            - label: 随机图
+              value: randomImg
+            - label: 自定义
+              value: customizeImg
+        - $formkit: text
+          if: $get(imgType).value == randomImg
+          label: 随机图API地址
+          name: randomImgUrl
+          id: randomImgUrl
+          key: randomImgUrl
+          value: ""
+          help: "用于随机图API生图"
