@@ -7,6 +7,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
@@ -51,9 +52,9 @@ public class ImgServiceImpl implements ImgService {
             .then();
     }
     @NotNull
-    private Mono<String> getPostContent(String postName) {
+    private Mono<Document> getPostContent(String postName) {
         return postContentService.getReleaseContent(postName)
-            .flatMap(contentWrapper -> Mono.just(Jsoup.parse(contentWrapper.getContent()).text()))
+            .flatMap(contentWrapper -> Mono.just(Jsoup.parse(contentWrapper.getContent())))
             .onErrorResume(e -> Mono.error(() -> new ServerWebInputException("获取文章内容时出错: " + e.getMessage())));
     }
 
