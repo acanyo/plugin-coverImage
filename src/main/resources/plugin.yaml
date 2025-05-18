@@ -9,14 +9,14 @@ spec:
   enabled: true
   requires: ">=2.20.0"
   author:
-    name: Halo
-    website: https://github.com/halo-dev
-  logo: logo.png
-  homepage: https://github.com/halo-dev/plugin-starter#readme
-  repo: https://github.com/halo-dev/plugin-starter
-  issues: https://github.com/halo-dev/plugin-starter/issues
-  displayName: "插件快速开始模板"
-  description: "这是一个插件快速开始模板"
+    name: Handsome
+    website: https://www.lik.cc/
+  logo: logo.svg
+  homepage: https://github.com/acanyo/plugin-coverImage#readme
+  repo: https://github.com/acanyo/plugin-coverImage
+  issues: https://github.com/acanyo/plugin-coverImage/issues
+  displayName: "封面图"
+  description: "为你的halo文章提供默认封面图功能"
   license:
     - name: "GPL-3.0"
-      url: "https://github.com/halo-dev/plugin-starter/blob/main/LICENSE"
+      url: "https://github.com/acanyo/plugin-coverImage/blob/main/LICENSE"

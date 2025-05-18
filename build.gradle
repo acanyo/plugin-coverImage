@@ -5,7 +5,7 @@ plugins {
     id "run.halo.plugin.devtools" version "0.2.0"
 }
 
-group 'run.halo.starter'
+group 'cc.lik.coverImage'
 sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
@@ -53,4 +53,6 @@ build {
 
 halo {
     version = '2.20'
+    debug = true
+    suspend = true
 }
