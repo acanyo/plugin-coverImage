@@ -83,3 +83,19 @@ spec:
               value: randomImg
             - label: 自定义
               value: customizeImg
+        - $formkit: select
+          if: $get(imgType).value == randomImg
+          name: randomType
+          key: randomType
+          id: randomType
+          label: 随机图类型
+          validation: required
+          value: "acg"
+          placeholder: 请选择你的主题
+          options:
+            - label:  二次元
+              value: acg
+            - label: 风景
+              value: views
+            - label: 全类型4K
+              value: all4k

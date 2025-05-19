@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.content.Post;
 import run.halo.app.extension.ReactiveExtensionClient;
-
+import reactor.util.retry.Retry;
+import java.time.Duration;
 import java.util.Optional;
 
 @Slf4j
@@ -34,11 +35,19 @@ public class ImgServiceImpl implements ImgService {
                 };
             })
             .flatMap(imageUrl -> {
-                post.getSpec().setCover(imageUrl);
-                return client.update(post)
-                    .doOnSuccess(p -> log.info("文章[{}]封面图更新成功", p.getSpec().getTitle()))
-                    .then();
+                // 重新获取最新的文章数据
+                return client.fetch(Post.class, post.getMetadata().getName())
+                    .flatMap(latestPost -> {
+                        latestPost.getSpec().setCover(imageUrl);
+                        return client.update(latestPost)
+                            .doOnSuccess(p -> log.info("文章[{}]封面图更新成功", p.getSpec().getTitle()))
+                            .then();
+                    });
             })
+            .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                .filter(throwable -> throwable.getMessage().contains("Version does not match"))
+                .doBeforeRetry(retrySignal -> 
+                    log.warn("更新文章封面图时发生版本冲突，正在进行第{}次重试", retrySignal.totalRetries() + 1)))
             .onErrorResume(e -> {
                 log.error("更新文章封面图失败: {}", e.getMessage());
                 return Mono.empty();

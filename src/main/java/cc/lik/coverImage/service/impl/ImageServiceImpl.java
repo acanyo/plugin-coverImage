@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,10 +17,12 @@ import run.halo.app.content.PostContentService;
 import run.halo.app.core.extension.content.Post;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Function;
 
 @Slf4j
 @Service
@@ -31,42 +34,77 @@ public class ImageServiceImpl implements ImageService {
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
 
-    private static final String RANDOM_IMAGE_API = "https://www.dmoe.cc/random.php?return=json";
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
+    private static final String API_ACG = "https://api.vvhan.com/api/wallpaper/acg?type=json";
+    private static final String API_VIEWS = "https://api.vvhan.com/api/wallpaper/views?type=json";
+    private static final String API_4K = "https://api.52vmy.cn/api/img/tu/pc";
 
     @Override
     public Mono<String> processRandomImage(Post post) {
+        log.info("开始处理随机图片，文章标题: {}", post.getSpec().getTitle());
         return settingConfigGetter.getBasicConfig()
-            .switchIfEmpty(Mono.error(new IllegalStateException("无法获取随机图片配置")))
+            .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
             .flatMap(config -> {
+                String randomType = config.getRandomType();
+                log.info("获取到随机图片类型配置: {}", randomType);
+                if (randomType == null || randomType.isEmpty()) {
+                    log.error("随机图片类型未配置");
+                    return Mono.error(new IllegalStateException("未配置随机图片类型"));
+                }
+
+                String apiUrl = switch (randomType) {
+                    case "acg" -> API_ACG;
+                    case "all4k" -> API_4K;
+                    default -> API_VIEWS;
+                };
+                log.info("选择API地址: {}", apiUrl);
+
                 WebClient webClient = webClientBuilder.build();
+                log.info("开始请求API获取图片");
                 return webClient.get()
-                    .uri(RANDOM_IMAGE_API)
+                    .uri(apiUrl)
                     .accept(TEXT_JSON)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Connection", "keep-alive")
+                    .header("Cache-Control", "no-cache")
                     .retrieve()
                     .bodyToMono(String.class)
+                    .doOnNext(response -> log.info("API响应数据: {}", response))
                     .flatMap(jsonStr -> {
                         try {
                             JsonNode json = objectMapper.readTree(jsonStr);
-                            String code = json.get("code").asText();
-                            if (!"200".equals(code)) {
-                                log.error("获取随机图片失败，状态码: {}", code);
-                                return Mono.error(new IllegalStateException("获取随机图片失败"));
+                            String imgUrl;
+                            
+                            // 根据不同的 API 响应格式解析图片 URL
+                            if (apiUrl.contains("vvhan")) {
+                                if (!json.get("success").asBoolean()) {
+                                    return Mono.error(new IllegalStateException("获取图片失败: " + json.get("type").asText()));
+                                }
+                                imgUrl = json.get("url").asText();
+                                log.info("从vvhan API获取到图片URL: {}", imgUrl);
+                            } else if (apiUrl.contains("52vmy")) {
+                                if (json.get("code").asInt() != 200) {
+                                    return Mono.error(new IllegalStateException("获取图片失败: " + json.get("msg").asText()));
+                                }
+                                imgUrl = json.get("url").asText();
+                                log.info("从52vmy API获取到图片URL: {}", imgUrl);
+                            } else {
+                                return Mono.error(new IllegalStateException("不支持的随机图片类型"));
                             }
-                            String imgUrl = json.get("imgurl").asText();
-                            log.info("获取随机图片成功: {}", imgUrl);
+
+                            // 使用带有请求头的WebClient来下载图片
                             return imageTransferService.updateFile(imgUrl)
                                 .doOnSuccess(url -> log.info("图片转存成功: {}", url))
-                                .onErrorResume(e -> {
-                                    log.error("图片转存失败: {}", e.getMessage());
-                                    return Mono.error(e);
-                                });
+                                .doOnError(e -> log.error("图片转存失败: {}", e.getMessage()));
                         } catch (Exception e) {
-                            log.error("解析JSON响应失败: {}", e.getMessage());
+                            log.error("解析JSON响应失败: {}", e.getMessage(), e);
                             return Mono.error(e);
                         }
                     });
-            });
+            })
+            .doOnError(e -> log.error("处理随机图片过程中发生错误: {}", e.getMessage(), e));
     }
 
     @Override
