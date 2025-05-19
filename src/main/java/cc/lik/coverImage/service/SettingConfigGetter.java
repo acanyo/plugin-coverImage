@@ -14,5 +14,6 @@ public interface SettingConfigGetter {
         private String fileGroup;
         private String filePolicy;
         private String imgType;
+        private String randomImgUrl;
     }
 }

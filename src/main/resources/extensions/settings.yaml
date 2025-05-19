@@ -98,5 +98,5 @@ spec:
           name: randomImgUrl
           id: randomImgUrl
           key: randomImgUrl
-          value: ""
+          value: "https://myhkw.cn/open/img/bing"
           help: "用于随机图API生图"
