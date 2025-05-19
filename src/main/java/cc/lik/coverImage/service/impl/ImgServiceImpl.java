@@ -27,9 +27,9 @@ public class ImgServiceImpl implements ImgService {
             .flatMap(config -> {
                 String imgType = Optional.ofNullable(config.getImgType()).orElse("firstPostImg");
                 return switch (imgType) {
-                    case "randomImg" -> imageService.processRandomImage(post, config.getRandomImgUrl());
-                    case "firstPostImg" -> imageService.processFirstPostImage(post, config.getRandomImgUrl());
-                    case "customizeImg" -> imageService.processCustomizeImage(post, config.getRandomImgUrl());
+                    case "randomImg" -> imageService.processRandomImage(post);
+                    case "firstPostImg" -> imageService.processFirstPostImage(post);
+                    case "customizeImg" -> imageService.processCustomizeImage(post);
                     default -> Mono.error(new IllegalArgumentException("未找到对应的图片处理策略: " + imgType));
                 };
             })
@@ -40,8 +40,8 @@ public class ImgServiceImpl implements ImgService {
                     .then();
             })
             .onErrorResume(e -> {
-                log.error("处理文章封面图失败: {}", e.getMessage());
-                return Mono.error(new IllegalStateException("处理文章封面图失败", e));
+                log.error("更新文章封面图失败: {}", e.getMessage());
+                return Mono.empty();
             });
     }
 }

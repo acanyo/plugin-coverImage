@@ -36,15 +36,7 @@ spec:
             height: "120px"
             style:
               margin-left: "80px"
-        - $formkit: checkbox
-          label: 开启图片转存
-          name: enablePicDump
-          id: enablePicDump
-          key: enablePicDump
-          value: true
-          help: "为了防止源站图片失效最好将图片保存至Halo附件库"
         - $formkit: select
-          if: $get(enablePicDump).value == true
           name: fileGroup
           key: fileGroup
           id: fileGroup
@@ -61,7 +53,6 @@ spec:
             labelField: spec.displayName
             valueField: metadata.name
         - $formkit: select
-          if: $get(enablePicDump).value == true
           name: filePolicy
           key: filePolicy
           id: filePolicy
@@ -92,11 +83,3 @@ spec:
               value: randomImg
             - label: 自定义
               value: customizeImg
-        - $formkit: text
-          if: $get(imgType).value == randomImg
-          label: 随机图API地址
-          name: randomImgUrl
-          id: randomImgUrl
-          key: randomImgUrl
-          value: "https://myhkw.cn/open/img/bing"
-          help: "用于随机图API生图"

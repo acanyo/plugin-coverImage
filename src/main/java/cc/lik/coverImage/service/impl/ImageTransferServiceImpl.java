@@ -35,11 +35,6 @@ public class ImageTransferServiceImpl implements ImageTransferService {
         return settingConfigGetter.getBasicConfig()
             .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
             .flatMap(config -> {
-                // 检查是否需要转存
-                if (!Boolean.TRUE.equals(config.getEnablePicDump())) {
-                    log.info("图片转存功能未启用");
-                    return Mono.just(picUrl);
-                }
                 if (!isImageUrl(picUrl)) {
                     log.info("不是有效的图片URL: {}", picUrl);
                     return Mono.just(picUrl);

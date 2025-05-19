@@ -7,18 +7,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 import run.halo.app.content.PostContentService;
 import run.halo.app.core.extension.content.Post;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -27,43 +28,49 @@ public class ImageServiceImpl implements ImageService {
     private final SettingConfigGetter settingConfigGetter;
     private final PostContentService postContentService;
     private final ImageTransferService imageTransferService;
-    private final Random random = new Random();
+    private final WebClient.Builder webClientBuilder;
+    private final ObjectMapper objectMapper;
+
+    private static final String RANDOM_IMAGE_API = "https://www.dmoe.cc/random.php?return=json";
+    private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
 
     @Override
-    public Mono<String> processRandomImage(Post post, String defaultImageUrl) {
+    public Mono<String> processRandomImage(Post post) {
         return settingConfigGetter.getBasicConfig()
             .switchIfEmpty(Mono.error(new IllegalStateException("无法获取随机图片配置")))
             .flatMap(config -> {
-                String randomImgUrl = config.getRandomImgUrl();
-                if (randomImgUrl == null || randomImgUrl.trim().isEmpty()) {
-                    log.warn("随机图片URL未配置，使用默认图片");
-                    return Mono.just(defaultImageUrl);
-                }
-
-                List<String> imageUrls = parseImageUrls(randomImgUrl);
-                if (imageUrls.isEmpty()) {
-                    log.warn("随机图片URL列表为空，使用默认图片");
-                    return Mono.just(defaultImageUrl);
-                }
-
-                String selectedUrl = imageUrls.get(random.nextInt(imageUrls.size()));
-                log.info("为文章[{}]选择随机图片: {}", post.getSpec().getTitle(), selectedUrl);
-
-                return imageTransferService.updateFile(selectedUrl)
-                    .doOnSuccess(url -> log.info("图片转存成功: {}", url))
-                    .onErrorResume(e -> {
-                        log.error("图片转存失败，使用原始URL: {}", e.getMessage());
-                        return Mono.just(selectedUrl);
+                WebClient webClient = webClientBuilder.build();
+                return webClient.get()
+                    .uri(RANDOM_IMAGE_API)
+                    .accept(TEXT_JSON)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .flatMap(jsonStr -> {
+                        try {
+                            JsonNode json = objectMapper.readTree(jsonStr);
+                            String code = json.get("code").asText();
+                            if (!"200".equals(code)) {
+                                log.error("获取随机图片失败，状态码: {}", code);
+                                return Mono.error(new IllegalStateException("获取随机图片失败"));
+                            }
+                            String imgUrl = json.get("imgurl").asText();
+                            log.info("获取随机图片成功: {}", imgUrl);
+                            return imageTransferService.updateFile(imgUrl)
+                                .doOnSuccess(url -> log.info("图片转存成功: {}", url))
+                                .onErrorResume(e -> {
+                                    log.error("图片转存失败: {}", e.getMessage());
+                                    return Mono.error(e);
+                                });
+                        } catch (Exception e) {
+                            log.error("解析JSON响应失败: {}", e.getMessage());
+                            return Mono.error(e);
+                        }
                     });
-            })
-            .onErrorResume(e -> {
-                log.error("获取随机图片失败: {}", e.getMessage());
-                return Mono.just(defaultImageUrl);
             });
     }
 
     @Override
-    public Mono<String> processFirstPostImage(Post post, String defaultImageUrl) {
+    public Mono<String> processFirstPostImage(Post post) {
         return postContentService.getReleaseContent(post.getMetadata().getName())
             .flatMap(contentWrapper -> {
                 String content = contentWrapper.getRaw();
@@ -71,9 +78,12 @@ public class ImageServiceImpl implements ImageService {
                 String firstImgSrc;
 
                 if ("markdown".equals(rawType)) {
-                    firstImgSrc = extractMarkdownImage(content, defaultImageUrl);
+                    firstImgSrc = extractMarkdownImage(content);
                 } else {
-                    firstImgSrc = extractHtmlImage(content, defaultImageUrl);
+                    firstImgSrc = extractHtmlImage(content);
+                }
+                if (firstImgSrc == null) {
+                    return Mono.error(new IllegalStateException("未找到文章中的图片"));
                 }
                 return Mono.just(firstImgSrc);
             })
@@ -84,32 +94,25 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public Mono<String> processCustomizeImage(Post post, String defaultImageUrl) {
+    public Mono<String> processCustomizeImage(Post post) {
         // TODO: 实现自定义图片逻辑
         log.info("使用自定义图片策略处理文章: {}", post.getSpec().getTitle());
-        return Mono.just(defaultImageUrl);
+        return Mono.error(new IllegalStateException("自定义图片功能尚未实现"));
     }
 
-    private List<String> parseImageUrls(String randomImgUrl) {
-        return Stream.of(randomImgUrl.split("[,;\\n]"))
-            .map(String::trim)
-            .filter(url -> !url.isEmpty())
-            .toList();
-    }
-
-    private String extractMarkdownImage(String content, String defaultImageUrl) {
+    private String extractMarkdownImage(String content) {
         Pattern pattern = Pattern.compile("!\\[(.*?)]\\((.*?)\\)");
         Matcher matcher = pattern.matcher(content);
-        return matcher.find() ? matcher.group(2) : defaultImageUrl;
+        return matcher.find() ? matcher.group(2) : null;
     }
 
-    private String extractHtmlImage(String content, String defaultImageUrl) {
+    private String extractHtmlImage(String content) {
         try {
             Document doc = Jsoup.parse(content);
             return Objects.requireNonNull(doc.select("img").first()).attr("src");
         } catch (Exception e) {
-            log.warn("解析HTML图片失败，使用默认图片: {}", e.getMessage());
-            return defaultImageUrl;
+            log.warn("解析HTML图片失败: {}", e.getMessage());
+            return null;
         }
     }
 } 

@@ -10,10 +10,8 @@ public interface SettingConfigGetter {
     @Data
     class BasicConfig {
         public static final String GROUP = "basic";
-        private Boolean enablePicDump;
         private String fileGroup;
         private String filePolicy;
         private String imgType;
-        private String randomImgUrl;
     }
 }
