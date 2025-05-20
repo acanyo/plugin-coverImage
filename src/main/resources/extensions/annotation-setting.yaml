@@ -14,6 +14,7 @@ spec:
       label: 封面图来源
       validation: required
       value: "firstPostImg"
+      help: "封面图类型"
       placeholder: 请选择你的主题
       options:
         - label: 文章获取首图
@@ -22,17 +23,26 @@ spec:
           value: randomImg
         - label: 自定义
           value: customizeImg
-    - $el: span
-      children: "左右标题都建议两个字 比如: 左标题 通讯 | 右标题 交流"
     - $formkit: "text"
       name: "coverImgTitle1"
+      id: "coverImgTitle1"
+      key: "coverImgTitle1"
+      help: "建议两个字 如：通讯"
       label: "封面图-左标题"
     - $formkit: "text"
       name: "coverImgTitle2"
+      id: "coverImgTitle2"
+      key: "coverImgTitle2"
+      help: "建议两个字 如：软件"
       label: "封面图-右标题"
     - $formkit: "text"
       name: "coverImgColor"
+      id: "coverImgColor"
+      key: "coverImgColor"
+      help: "查看文档获取教程 https://docs.lik.cc"
       label: "封面图-配色"
     - $formkit: "attachment"
       name: "coverImgLogo"
+      id: "coverImgLogo"
+      key: "coverImgLogo"
       label: "封面图-ICON"
