@@ -95,8 +95,8 @@ halo:
 
 感谢以下开发者的贡献和支持：
 
-- [困困鱼](https://wwww.kunkunyu.com) - 提供了宝贵的建议和测试反馈
-- [柳意梧情](https://blog.muyin.site) - 提供了技术支持和代码优化建议
+- [困困鱼](https://wwww.kunkunyu.com) - 提供了宝贵的建议
+- [柳意梧情](https://blog.muyin.site) - 提供了技术支持
 
 ## 许可证
 
