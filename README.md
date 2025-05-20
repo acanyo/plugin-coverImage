@@ -91,6 +91,13 @@ halo:
 
 最后重启 Halo 项目即可。
 
+## 致谢
+
+感谢以下开发者的贡献和支持：
+
+- [困困鱼](https://wwww.kunkunyu.com) - 提供了宝贵的建议和测试反馈
+- [柳意梧情](https://blog.muyin.site) - 提供了技术支持和代码优化建议
+
 ## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
