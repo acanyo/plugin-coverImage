@@ -9,8 +9,15 @@ Halo 2.0 文章封面图片生成插件，支持自动生成文章封面图片�
 - 随机图（支持全场景4K图、风景图、二次元）
 - 自定义封面图(根据你输入文字 ICON 生成一个封面图)
 
+## 演示图
+![演示图](https://www.lik.cc/upload/image-zuys.png)
+
 ## 文档
 详细的使用文档：https://docs.lik.cc/
+
+## 交流群
+![QQ群](https://www.lik.cc/upload/QQ%E7%BE%A4.png)
+
 ## 开发环境
 
 插件开发的详细文档请查阅：<https://docs.halo.run/developer-guide/plugin/introduction>
@@ -83,8 +90,6 @@ halo:
 ```
 
 最后重启 Halo 项目即可。
-
-
 
 ## 许可证
 
