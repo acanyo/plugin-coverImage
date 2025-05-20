@@ -18,7 +18,9 @@ import run.halo.app.core.extension.content.Post;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import cc.lik.coverImage.service.CoverImageGenerator;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +35,7 @@ public class ImageServiceImpl implements ImageService {
     private final ImageTransferService imageTransferService;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
+    private final CoverImageGenerator coverImageGenerator;
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
     private static final String API_ACG = "https://api.vvhan.com/api/wallpaper/acg?type=json";
@@ -133,9 +136,13 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public Mono<String> processCustomizeImage(Post post) {
-        // TODO: 实现自定义图片逻辑
         log.info("使用自定义图片策略处理文章: {}", post.getSpec().getTitle());
-        return Mono.error(new IllegalStateException("自定义图片功能尚未实现"));
+        try {
+            return coverImageGenerator.generateCoverImage(post);
+        } catch (IOException e) {
+            log.error("生成封面图片失败", e);
+            return Mono.error(e);
+        }
     }
 
     private String extractMarkdownImage(String content) {

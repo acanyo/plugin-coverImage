@@ -22,7 +22,7 @@ spec:
               children: "查看 封面图 帮助文档"
             - $el: img
               attrs:
-                src: "/plugins/bingeWatching/assets/static/img/link.svg"
+                src: "/plugins/coverImage/assets/static/img/link.svg"
                 width: "14px"
                 height: "14px"
                 style:

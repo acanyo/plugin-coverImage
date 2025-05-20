@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SynchronousSink;
 import reactor.core.scheduler.Schedulers;
 import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.endpoint.SimpleFilePart;
@@ -21,6 +22,7 @@ import run.halo.app.core.extension.service.AttachmentService;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.core.extension.User;
 
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -55,19 +57,45 @@ public class ImageTransferServiceImpl implements ImageTransferService {
                                 return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
                                     .subscribeOn(Schedulers.boundedElastic());
                             })
-                            .<String>handle((uploadedAttachment, sink) -> {
-                                if (uploadedAttachment != null && uploadedAttachment.getMetadata() != null && uploadedAttachment.getMetadata().getAnnotations() != null) {
-                                    String uploadedUri = uploadedAttachment.getMetadata().getAnnotations().get("storage.halo.run/uri");
-                                    log.info("图片上传成功: {}", uploadedUri);
-                                    sink.next(uploadedUri);
-                                } else {
-                                    sink.error(new IllegalStateException("图片上传成功但无法获取URI"));
-                                }
-                            })
+                            .handle(uploadReturn())
                             .onErrorResume(e -> {
                                 log.error("图片处理失败: {}", e.getMessage());
                                 return Mono.just(picUrl);
                             });
+                    });
+            });
+    }
+
+    private BiConsumer<Attachment, SynchronousSink<String>> uploadReturn() {
+        return (uploadedAttachment, sink) -> {
+            if (uploadedAttachment != null && uploadedAttachment.getMetadata() != null
+                && uploadedAttachment.getMetadata().getAnnotations() != null) {
+                String uploadedUri =
+                    uploadedAttachment.getMetadata().getAnnotations().get("storage.halo.run/uri");
+                log.info("图片上传成功: {}", uploadedUri);
+                sink.next(uploadedUri);
+            } else {
+                sink.error(new IllegalStateException("图片上传成功但无法获取URI"));
+            }
+        };
+    }
+
+    @Override
+    public Mono<String> updateFile(Flux<DataBuffer> dataBufferFlux, Post post, String filename, MediaType mediaType) {
+        return getCurrentUser(post.getSpec().getOwner())
+            .flatMap(user -> {
+                log.info("用户[{}]开始处理图片数据流: {}", user.getMetadata().getName(), filename);
+                return settingConfigGetter.getBasicConfig()
+                    .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
+                    .flatMap(config -> {
+                        var file = new SimpleFilePart(filename, dataBufferFlux, mediaType);
+                        return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
+                            .subscribeOn(Schedulers.boundedElastic());
+                    })
+                    .handle(uploadReturn())
+                    .onErrorResume(e -> {
+                        log.error("图片处理失败: {}", e.getMessage());
+                        return Mono.error(e);
                     });
             });
     }

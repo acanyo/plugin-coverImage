@@ -1,0 +1,36 @@
+apiVersion: v1alpha1
+kind: AnnotationSetting
+metadata:
+  name: coverImage-annotation-setting
+spec:
+  targetRef:
+    group: content.halo.run
+    kind: Post
+  formSchema:
+    - $formkit: select
+      name: imgType
+      key: imgType
+      id: imgType
+      label: 封面图来源
+      validation: required
+      value: "firstPostImg"
+      placeholder: 请选择你的主题
+      options:
+        - label: 文章获取首图
+          value: firstPostImg
+        - label: 随机图
+          value: randomImg
+        - label: 自定义
+          value: customizeImg
+    - $formkit: "text"
+      name: "coverImgTitle1"
+      label: "标题一"
+    - $formkit: "text"
+      name: "coverImgTitle2"
+      label: "标题二"
+    - $formkit: "text"
+      name: "coverImgColor"
+      label: "配色"
+    - $formkit: "attachment"
+      name: "coverImgLogo"
+      label: "版本"
