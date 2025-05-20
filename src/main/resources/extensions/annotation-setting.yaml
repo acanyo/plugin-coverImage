@@ -8,9 +8,9 @@ spec:
     kind: Post
   formSchema:
     - $formkit: select
-      name: imgType
-      key: imgType
-      id: imgType
+      name: coverImgType
+      key: coverImgType
+      id: coverImgType
       label: 封面图来源
       validation: required
       value: "firstPostImg"
@@ -22,15 +22,17 @@ spec:
           value: randomImg
         - label: 自定义
           value: customizeImg
+    - $el: span
+      children: "左右标题都建议两个字 比如: 左标题 通讯 | 右标题 交流"
     - $formkit: "text"
       name: "coverImgTitle1"
-      label: "标题一"
+      label: "封面图-左标题"
     - $formkit: "text"
       name: "coverImgTitle2"
-      label: "标题二"
+      label: "封面图-右标题"
     - $formkit: "text"
       name: "coverImgColor"
-      label: "配色"
+      label: "封面图-配色"
     - $formkit: "attachment"
       name: "coverImgLogo"
-      label: "版本"
+      label: "封面图-ICON"

@@ -12,7 +12,6 @@ public interface SettingConfigGetter {
         public static final String GROUP = "basic";
         private String fileGroup;
         private String filePolicy;
-        private String imgType;
         private String randomType;
     }
 }

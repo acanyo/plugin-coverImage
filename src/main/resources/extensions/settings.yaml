@@ -69,22 +69,6 @@ spec:
             labelField: spec.displayName
             valueField: metadata.name
         - $formkit: select
-          name: imgType
-          key: imgType
-          id: imgType
-          label: 封面图来源
-          validation: required
-          value: "firstPostImg"
-          placeholder: 请选择你的主题
-          options:
-            - label: 文章获取首图
-              value: firstPostImg
-            - label: 随机图
-              value: randomImg
-            - label: 自定义
-              value: customizeImg
-        - $formkit: select
-          if: $get(imgType).value == randomImg
           name: randomType
           key: randomType
           id: randomType

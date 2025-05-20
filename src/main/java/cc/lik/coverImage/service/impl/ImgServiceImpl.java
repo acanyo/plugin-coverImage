@@ -26,7 +26,8 @@ public class ImgServiceImpl implements ImgService {
         return settingConfigGetter.getBasicConfig()
             .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
             .flatMap(config -> {
-                String imgType = Optional.ofNullable(config.getImgType()).orElse("firstPostImg");
+                String imgType =
+                    Optional.ofNullable(post.getMetadata().getAnnotations().get("coverImgType")).orElse("randomImg");
                 return switch (imgType) {
                     case "randomImg" -> imageService.processRandomImage(post);
                     case "firstPostImg" -> imageService.processFirstPostImage(post);
