@@ -48,8 +48,7 @@ public class ImgServiceImpl implements ImgService {
                 .filter(throwable -> throwable.getMessage().contains("Version does not match"))
                 .doBeforeRetry(retrySignal -> 
                     log.warn("更新文章封面图时发生版本冲突，正在进行第{}次重试", retrySignal.totalRetries() + 1)))
-            .onErrorResume(e -> {
-                log.error("更新文章封面图失败: {}", e.getMessage());
+            .onErrorResume(e -> {log.error("更新文章封面图失败: {}", e.getMessage());
                 return Mono.empty();
             });
     }

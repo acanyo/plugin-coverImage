@@ -95,7 +95,7 @@ public class ImageServiceImpl implements ImageService {
                             }
 
                             // 使用带有请求头的WebClient来下载图片
-                            return imageTransferService.updateFile(imgUrl)
+                            return imageTransferService.updateFile(imgUrl,post)
                                 .doOnSuccess(url -> log.info("图片转存成功: {}", url))
                                 .doOnError(e -> log.error("图片转存失败: {}", e.getMessage()));
                         } catch (Exception e) {
