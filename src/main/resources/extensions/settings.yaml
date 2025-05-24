@@ -40,9 +40,9 @@ spec:
           name: fileGroup
           key: fileGroup
           id: fileGroup
-          label: 附件存储策略
+          label: 附件存储组
           searchable: true
-          help: "用于指定图片转存上传的默认附件存储策略"
+          help: "用于指定图片转存上传的默认附件存储分组"
           action: /apis/storage.halo.run/v1alpha1/groups?labelSelector=%21halo.run%2Fhidden&sort=metadata.creationTimestamp%2Cdesc
           requestOption:
             method: GET
@@ -56,9 +56,9 @@ spec:
           name: filePolicy
           key: filePolicy
           id: filePolicy
-          label: 附件存储组
+          label: 附件存储策略
           searchable: true
-          help: "用于指定图片转存上传的默认附件存储分组"
+          help: "用于指定图片转存上传的默认附件存储策略"
           action: /apis/storage.halo.run/v1alpha1/policies
           requestOption:
             method: GET
