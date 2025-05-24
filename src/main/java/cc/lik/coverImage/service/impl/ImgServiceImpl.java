@@ -26,7 +26,8 @@ public class ImgServiceImpl implements ImgService {
         return settingConfigGetter.getBasicConfig()
             .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
             .flatMap(config -> {
-                String imgType = Optional.ofNullable(config.getImgType()).orElse("firstPostImg");
+                String imgType =
+                    Optional.ofNullable(post.getMetadata().getAnnotations().get("coverImgType")).orElse("randomImg");
                 return switch (imgType) {
                     case "randomImg" -> imageService.processRandomImage(post);
                     case "firstPostImg" -> imageService.processFirstPostImage(post);
@@ -48,8 +49,7 @@ public class ImgServiceImpl implements ImgService {
                 .filter(throwable -> throwable.getMessage().contains("Version does not match"))
                 .doBeforeRetry(retrySignal -> 
                     log.warn("更新文章封面图时发生版本冲突，正在进行第{}次重试", retrySignal.totalRetries() + 1)))
-            .onErrorResume(e -> {
-                log.error("更新文章封面图失败: {}", e.getMessage());
+            .onErrorResume(e -> {log.error("更新文章封面图失败: {}", e.getMessage());
                 return Mono.empty();
             });
     }

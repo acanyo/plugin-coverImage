@@ -1,0 +1,28 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse" ${gradientTransform}>
+      ${stops}
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="15" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <!-- 渐变背景 -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- 文字容器 -->
+  <g dominant-baseline="middle"
+     font-family="DouyinSansBold, sans-serif" font-weight="bold" fill="#fff" filter="url(#shadow)">
+    <!-- 标题1（左侧部分，固定位置） -->
+    <text x="560" y="350" font-size="210" text-anchor="end">
+      ${title1}
+    </text>
+    <!-- 标题2（右侧部分，固定位置） -->
+    <text x="640" y="350" font-size="210" text-anchor="start">
+      ${title2}
+    </text>
+  </g>
+
+  <!-- 居中Logo（Base64内嵌，固定位置和尺寸） -->
+  <image href="${logoBase64}" xlink:href="${logoBase64}" x="500" y="230" width="200" height="200" rx="100" filter="url(#shadow)"/>
+</svg>
