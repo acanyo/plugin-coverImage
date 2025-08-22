@@ -38,8 +38,8 @@ public class ImageServiceImpl implements ImageService {
     private final CoverImageGenerator coverImageGenerator;
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
-    private static final String API_ACG = "https://api.vvhan.com/api/wallpaper/acg?type=json";
-    private static final String API_VIEWS = "https://api.vvhan.com/api/wallpaper/views?type=json";
+    private static final String API_ACG = "https://www.dmoe.cc/random.php?return=json";
+    private static final String API_BING = "https://bing.img.run/rand.php?type=json";
     private static final String API_4K = "https://api.52vmy.cn/api/img/tu/pc";
 
     @Override
@@ -58,7 +58,7 @@ public class ImageServiceImpl implements ImageService {
                 String apiUrl = switch (randomType) {
                     case "acg" -> API_ACG;
                     case "all4k" -> API_4K;
-                    default -> API_VIEWS;
+                    default -> API_BING;
                 };
                 log.info("选择API地址: {}", apiUrl);
 
@@ -81,18 +81,15 @@ public class ImageServiceImpl implements ImageService {
                             String imgUrl;
                             
                             // 根据不同的 API 响应格式解析图片 URL
-                            if (apiUrl.contains("vvhan")) {
-                                if (!json.get("success").asBoolean()) {
-                                    return Mono.error(new IllegalStateException("获取图片失败: " + json.get("type").asText()));
-                                }
-                                imgUrl = json.get("url").asText();
-                                log.info("从vvhan API获取到图片URL: {}", imgUrl);
-                            } else if (apiUrl.contains("52vmy")) {
+                            if (apiUrl.contains("52vmy") || apiUrl.contains("dmoe.cc")) {
                                 if (json.get("code").asInt() != 200) {
                                     return Mono.error(new IllegalStateException("获取图片失败: " + json.get("msg").asText()));
                                 }
-                                imgUrl = json.get("url").asText();
-                                log.info("从52vmy API获取到图片URL: {}", imgUrl);
+                                imgUrl = json.has("imgurl") ? json.get("imgurl").asText() : json.get("url").asText();
+                                log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
+                            }else if (apiUrl.contains("bing.img.run")) {
+                                imgUrl = json.get("data").get("pic").asText();
+                                log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
                             } else {
                                 return Mono.error(new IllegalStateException("不支持的随机图片类型"));
                             }
