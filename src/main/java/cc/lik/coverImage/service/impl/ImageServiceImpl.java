@@ -39,7 +39,7 @@ public class ImageServiceImpl implements ImageService {
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
     private static final String API_ACG = "https://www.dmoe.cc/random.php?return=json";
-    private static final String API_BING = "https://bing.img.run/rand.php?type=json";
+    private static final String API_BING = "https://api.xsot.cn/bing/?quality=1920x1080&mkt=zh-cn";
     private static final String API_4K = "https://api.52vmy.cn/api/img/tu/pc";
 
     @Override
@@ -87,8 +87,8 @@ public class ImageServiceImpl implements ImageService {
                                 }
                                 imgUrl = json.has("imgurl") ? json.get("imgurl").asText() : json.get("url").asText();
                                 log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
-                            }else if (apiUrl.contains("bing.img.run")) {
-                                imgUrl = json.get("data").get("pic").asText();
+                            }else if (apiUrl.contains("bing")) {
+                                imgUrl = json.get("data").get("image").asText();
                                 log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
                             } else {
                                 return Mono.error(new IllegalStateException("不支持的随机图片类型"));
