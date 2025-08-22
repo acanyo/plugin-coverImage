@@ -39,7 +39,7 @@ public class ImageServiceImpl implements ImageService {
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
     private static final String API_ACG = "https://www.dmoe.cc/random.php?return=json";
-    private static final String API_BING = "https://bing.img.run/rand_uhd.php?type=json";
+    private static final String API_BING = "https://bing.img.run/rand.php?type=json";
     private static final String API_4K = "https://api.52vmy.cn/api/img/tu/pc";
 
     @Override
