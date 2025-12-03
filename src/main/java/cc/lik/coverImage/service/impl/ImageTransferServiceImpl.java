@@ -44,22 +44,36 @@ public class ImageTransferServiceImpl implements ImageTransferService {
                 return settingConfigGetter.getBasicConfig()
                     .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
                     .flatMap(config -> {
-                        if (!isImageUrl(picUrl)) {
+                        // 检查配置是否完整
+                        if (config.getFilePolicy() == null || config.getFilePolicy().isEmpty()) {
+                            log.warn("未配置附件存储策略，直接使用原始URL: {}", picUrl);
                             return Mono.just(picUrl);
                         }
 
-                        final String originalFileName = getFileName(picUrl);
-                        final MediaType originalMediaType = getMediaType(originalFileName);
-                        
+                        // 检查是否为图片URL，如果不是标准图片扩展名也尝试下载
+                        boolean isStandardImageUrl = isImageUrl(picUrl);
+                        log.info("URL是否为标准图片格式: {}, URL: {}", isStandardImageUrl, picUrl);
+
+                        // 从URL提取文件名，如果没有扩展名则添加.jpg
+                        String originalFileName = getFileName(picUrl);
+                        if (!originalFileName.contains(".")) {
+                            originalFileName = originalFileName + ".jpg";
+                        }
+                        final String fileName = originalFileName;
+                        final MediaType mediaType = getMediaType(fileName);
+
+                        log.info("开始下载图片，文件名: {}, 媒体类型: {}", fileName, mediaType);
+
                         return downloadImage(webClientBuilder.build(), picUrl)
                             .flatMap(dataBufferFlux -> {
-                                var file = new SimpleFilePart(originalFileName, dataBufferFlux, originalMediaType);
+                                var file = new SimpleFilePart(fileName, dataBufferFlux, mediaType);
+                                log.info("开始上传图片到存储，策略: {}, 分组: {}", config.getFilePolicy(), config.getFileGroup());
                                 return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
                                     .subscribeOn(Schedulers.boundedElastic());
                             })
                             .handle(uploadReturn())
                             .onErrorResume(e -> {
-                                log.error("图片处理失败: {}", e.getMessage());
+                                log.error("图片转存失败，使用原始URL: {}, 错误: {}", picUrl, e.getMessage(), e);
                                 return Mono.just(picUrl);
                             });
                     });
