@@ -164,9 +164,9 @@ spec:
           key: timeoutSeconds
           id: timeoutSeconds
           label: 超时时间(秒)
-          value: 120
+          value: 180
           min: 30
-          max: 300
+          max: 600
           help: "图片生成的最大等待时间"
         - $formkit: number
           name: pollIntervalMs
