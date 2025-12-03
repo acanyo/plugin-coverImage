@@ -26,12 +26,14 @@ public class ImgServiceImpl implements ImgService {
         return settingConfigGetter.getBasicConfig()
             .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
             .flatMap(config -> {
-                String imgType =
-                    Optional.ofNullable(post.getMetadata().getAnnotations().get("coverImgType")).orElse("randomImg");
+                String imgType = Optional.ofNullable(post.getMetadata().getAnnotations())
+                    .map(annotations -> annotations.get("coverImgType"))
+                    .orElse("randomImg");
                 return switch (imgType) {
                     case "randomImg" -> imageService.processRandomImage(post);
                     case "firstPostImg" -> imageService.processFirstPostImage(post);
                     case "customizeImg" -> imageService.processCustomizeImage(post);
+                    case "aiGenerated" -> imageService.processAIGeneratedImage(post);
                     default -> Mono.error(new IllegalArgumentException("未找到对应的图片处理策略: " + imgType));
                 };
             })
