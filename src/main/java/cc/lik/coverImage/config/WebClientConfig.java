@@ -13,8 +13,8 @@ public class WebClientConfig {
     public WebClient.Builder webClientBuilder() {
         // 配置 HttpClient
         HttpClient httpClient = HttpClient.create()
-            .responseTimeout(java.time.Duration.ofSeconds(30))
-            .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
+            .responseTimeout(java.time.Duration.ofSeconds(180))
+            .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000);
         
         return WebClient.builder()
             .clientConnector(new ReactorClientHttpConnector(httpClient))

@@ -27,4 +27,11 @@ public interface ImageService {
      * @return 处理后的图片URL
      */
     Mono<String> processCustomizeImage(Post post);
+
+    /**
+     * 处理 AI 生成图片
+     * @param post 文章对象
+     * @return 处理后的图片URL
+     */
+    Mono<String> processAIGeneratedImage(Post post);
 } 

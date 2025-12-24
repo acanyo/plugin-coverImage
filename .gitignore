@@ -26,6 +26,9 @@ bin/
 *.ipr
 log/
 
+# vscode
+.vscode
+
 ### NetBeans ###
 nbproject/private/
 build/
@@ -73,3 +76,6 @@ application-local.properties
 /ui/node_modules/
 /workplace/
 /src/main/resources/console/
+
+# claude file
+.claude/

@@ -23,6 +23,8 @@ spec:
           value: randomImg
         - label: 自定义
           value: customizeImg
+        - label: AI 生成
+          value: aiGenerated
     - $formkit: "text"
       name: "coverImgTitle1"
       id: "coverImgTitle1"

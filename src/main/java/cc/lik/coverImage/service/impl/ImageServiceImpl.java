@@ -1,13 +1,16 @@
 package cc.lik.coverImage.service.impl;
 
+import cc.lik.coverImage.service.CoverImageGenerator;
 import cc.lik.coverImage.service.ImageService;
 import cc.lik.coverImage.service.ImageTransferService;
+import cc.lik.coverImage.service.NanoBananaService;
 import cc.lik.coverImage.service.SettingConfigGetter;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,16 +18,11 @@ import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 import run.halo.app.content.PostContentService;
 import run.halo.app.core.extension.content.Post;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import cc.lik.coverImage.service.CoverImageGenerator;
 
 import java.io.IOException;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.function.Function;
 
 @Slf4j
 @Service
@@ -36,6 +34,7 @@ public class ImageServiceImpl implements ImageService {
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final CoverImageGenerator coverImageGenerator;
+    private final NanoBananaService nanoBananaService;
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
     private static final String API_ACG = "https://www.dmoe.cc/random.php?return=json";
@@ -156,5 +155,11 @@ public class ImageServiceImpl implements ImageService {
             log.warn("解析HTML图片失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    @Override
+    public Mono<String> processAIGeneratedImage(Post post) {
+        log.info("使用 AI 生成图片策略处理文章: {}", post.getSpec().getTitle());
+        return nanoBananaService.generateImage(post);
     }
 } 
