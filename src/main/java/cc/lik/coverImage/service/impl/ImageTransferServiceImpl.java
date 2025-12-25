@@ -102,7 +102,14 @@ public class ImageTransferServiceImpl implements ImageTransferService {
                 return settingConfigGetter.getBasicConfig()
                     .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
                     .flatMap(config -> {
+                        // 检查配置是否完整
+                        if (config.getFilePolicy() == null || config.getFilePolicy().isEmpty()) {
+                            log.warn("未配置附件存储策略，请在插件设置中配置");
+                            return Mono.error(new RuntimeException("请先在插件设置中配置附件存储策略"));
+                        }
+                        
                         var file = new SimpleFilePart(filename, dataBufferFlux, mediaType);
+                        log.info("开始上传图片到存储，策略: {}, 分组: {}", config.getFilePolicy(), config.getFileGroup());
                         return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
                             .subscribeOn(Schedulers.boundedElastic());
                     })

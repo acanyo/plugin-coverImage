@@ -3,15 +3,16 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   ci:
-    uses: halo-sigs/reusable-workflows/.github/workflows/plugin-ci.yaml@v1
+    uses: halo-sigs/reusable-workflows/.github/workflows/plugin-ci.yaml@v3
     with:
-      node-version: "20"
-      pnpm-version: "10"
       ui-path: "ui"
+      pnpm-version: 9
+      node-version: 22
+      java-version: 21

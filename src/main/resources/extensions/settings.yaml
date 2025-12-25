@@ -86,37 +86,39 @@ spec:
     - group: ai
       label: AI 生成设置
       formSchema:
+        - $el: a
+          attrs:
+            href: "https://api.codesphere.chat/register?aff=76JI"
+            class: "py-4 block"
+            target: "_blank"
+            style:
+              color: "#1890ff"
+              fontSize: "0.875em"
+              display: "flex"
+              align-items: "center"
+          children:
+            - $el: span
+              children: "前往 AI 网站注册 Token"
+            - $el: img
+              attrs:
+                src: "/plugins/coverImage/assets/static/img/link.svg"
+                width: "14px"
+                height: "14px"
+                style:
+                  margin-left: "4px"
         - $formkit: text
           name: apiBaseUrl
           key: apiBaseUrl
           id: apiBaseUrl
           label: API 基础地址
-          value: "https://api.djxx.club"
-          help: "Nano Banana API 的基础地址"
+          value: "https://api.codesphere.chat"
+          help: "CodeSphere API 的基础地址"
         - $formkit: password
           name: apiKey
           key: apiKey
           id: apiKey
           label: API Key
-          help: "Nano Banana API 密钥"
-        - $formkit: select
-          name: model
-          key: model
-          id: model
-          label: 模型
-          value: "nano-banana-2-2k"
-          help: "选择图片生成模型。nano-banana-2 支持自定义尺寸(image_size参数)"
-          options:
-            - label: Nano Banana 2 (4K)
-              value: nano-banana-2-4k
-            - label: Nano Banana 2 (2K)
-              value: nano-banana-2-2k
-            - label: Nano Banana 2 (可自定义尺寸)
-              value: nano-banana-2
-            - label: Nano Banana HD (高清)
-              value: nano-banana-hd
-            - label: Nano Banana (标准)
-              value: nano-banana
+          help: "CodeSphere API Token (Bearer Token)"
         - $formkit: textarea
           name: promptTemplate
           key: promptTemplate
@@ -125,55 +127,3 @@ spec:
           value: "为这篇博客文章生成一张精美的封面图片。文章标题：{title}。文章内容摘要：{content}"
           help: "支持占位符: {title} 文章标题, {content} 文章内容"
           rows: 3
-        - $formkit: select
-          name: aspectRatio
-          key: aspectRatio
-          id: aspectRatio
-          label: 图片比例
-          value: "16:9"
-          help: "生成图片的宽高比"
-          options:
-            - label: 16:9 (横向宽屏)
-              value: "16:9"
-            - label: 4:3 (横向标准)
-              value: "4:3"
-            - label: 3:2 (横向)
-              value: "3:2"
-            - label: 1:1 (正方形)
-              value: "1:1"
-            - label: 21:9 (超宽屏)
-              value: "21:9"
-        - $formkit: select
-          name: imageSize
-          key: imageSize
-          id: imageSize
-          label: 图片尺寸
-          value: ""
-          help: "仅 nano-banana-2 模型支持自定义尺寸，其他模型请留空"
-          options:
-            - label: 默认 (不设置)
-              value: ""
-            - label: 1K
-              value: "1K"
-            - label: 2K
-              value: "2K"
-            - label: 4K
-              value: "4K"
-        - $formkit: number
-          name: timeoutSeconds
-          key: timeoutSeconds
-          id: timeoutSeconds
-          label: 超时时间(秒)
-          value: 180
-          min: 30
-          max: 600
-          help: "图片生成的最大等待时间"
-        - $formkit: number
-          name: pollIntervalMs
-          key: pollIntervalMs
-          id: pollIntervalMs
-          label: 轮询间隔(毫秒)
-          value: 2000
-          min: 1000
-          max: 10000
-          help: "查询任务状态的间隔时间"

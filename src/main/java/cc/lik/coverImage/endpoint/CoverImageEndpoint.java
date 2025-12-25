@@ -1,23 +1,26 @@
 package cc.lik.coverImage.endpoint;
 
+import cc.lik.coverImage.dto.CoverGenerationResponse;
+import cc.lik.coverImage.dto.UploadCoverRequest;
 import cc.lik.coverImage.service.ImageService;
 import cc.lik.coverImage.service.SettingConfigGetter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.webflux.core.fn.SpringdocRouteBuilder;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.content.Post;
+import run.halo.app.core.extension.endpoint.CustomEndpoint;
+import run.halo.app.extension.GroupVersion;
 import run.halo.app.extension.ReactiveExtensionClient;
-import run.halo.app.plugin.ReactiveSettingFetcher;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import static org.springdoc.core.fn.builders.apiresponse.Builder.responseBuilder;
+import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
+import static org.springdoc.core.fn.builders.requestbody.Builder.requestBodyBuilder;
 
 /**
  * AI 封面图生成 API 端点
@@ -25,43 +28,38 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CoverImageEndpoint {
+public class CoverImageEndpoint implements CustomEndpoint {
 
     private final ReactiveExtensionClient client;
     private final ImageService imageService;
     private final SettingConfigGetter settingConfigGetter;
 
-    // 存储生成任务状态
-    private final ConcurrentHashMap<String, TaskStatus> taskStatusMap = new ConcurrentHashMap<>();
-
-    /**
-     * 任务状态
-     */
-    public static class TaskStatus {
-        public String status; // pending, generating, success, failed
-        public String message;
-        public String imageUrl;
-        public long startTime;
-
-        public TaskStatus(String status, String message) {
-            this.status = status;
-            this.message = message;
-            this.startTime = System.currentTimeMillis();
-        }
+    @Override
+    public GroupVersion groupVersion() {
+        return GroupVersion.parseAPIVersion("coverimage.lik.cc/v1alpha1");
     }
 
-    /**
-     * 注册路由
-     */
-    @Component
-    public class CoverImageRouter {
-        @org.springframework.context.annotation.Bean
-        public RouterFunction<ServerResponse> coverImageRoutes() {
-            return RouterFunctions.route()
-                .POST("/apis/coverimage.lik.cc/v1alpha1/generate/{postName}", CoverImageEndpoint.this::generateCover)
-                .GET("/apis/coverimage.lik.cc/v1alpha1/status/{postName}", CoverImageEndpoint.this::getStatus)
-                .build();
-        }
+    @Override
+    public RouterFunction<ServerResponse> endpoint() {
+        var tag = "coverimage.lik.cc/v1alpha1/CoverImage";
+        return SpringdocRouteBuilder.route()
+            .POST("generate/{postName}", this::generateCover,
+                builder -> builder.operationId("GenerateCover")
+                    .description("生成文章封面图")
+                    .tag(tag)
+                    .parameter(parameterBuilder().name("postName").description("文章名称"))
+                    .parameter(parameterBuilder().name("type").description("生成类型: randomImg, firstPostImg, customizeImg, aiGenerated"))
+                    .parameter(parameterBuilder().name("model").description("AI 模型"))
+                    .parameter(parameterBuilder().name("size").description("图片尺寸"))
+                    .parameter(parameterBuilder().name("style").description("图片风格"))
+                    .response(responseBuilder().implementation(CoverGenerationResponse.class)))
+            .POST("upload", this::uploadCover,
+                builder -> builder.operationId("UploadCover")
+                    .description("上传封面图并设置到文章")
+                    .tag(tag)
+                    .requestBody(requestBodyBuilder().implementation(UploadCoverRequest.class))
+                    .response(responseBuilder().implementation(String.class)))
+            .build();
     }
 
     /**
@@ -69,88 +67,86 @@ public class CoverImageEndpoint {
      */
     private Mono<ServerResponse> generateCover(ServerRequest request) {
         String postName = request.pathVariable("postName");
-        log.info("收到生成封面图请求，文章: {}", postName);
+        String type = request.queryParam("type").orElse("randomImg");
+        String model = request.queryParam("model").orElse("doubao-seedream-4.5");
+        String size = request.queryParam("size").orElse("2560x1440");
+        String style = request.queryParam("style").orElse("默认");
+        boolean watermark = Boolean.parseBoolean(request.queryParam("watermark").orElse("false"));
+        
+        log.info("收到生成封面图请求，文章: {}, 类型: {}, 模型: {}, 尺寸: {}, 风格: {}, 水印: {}", 
+            postName, type, model, size, style, watermark);
 
-        // 检查是否已有正在进行的任务
-        TaskStatus existingTask = taskStatusMap.get(postName);
-        if (existingTask != null && "generating".equals(existingTask.status)) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(createResponse("generating", "正在生成中，请稍候...", null));
-        }
-
-        // 创建新任务
-        taskStatusMap.put(postName, new TaskStatus("generating", "正在生成封面图..."));
-
-        // 异步执行生成
-        client.fetch(Post.class, postName)
+        // 使用 Mono 链式调用，直到生成完成才返回
+        return client.fetch(Post.class, postName)
             .flatMap(post -> {
-                log.info("开始为文章[{}]生成 AI 封面图", post.getSpec().getTitle());
-                return imageService.processAIGeneratedImage(post)
+                log.info("开始为文章[{}]生成封面图，策略: {}", post.getSpec().getTitle(), type);
+                
+                Mono<String> generationMono = switch (type) {
+                    case "firstPostImg" -> imageService.processFirstPostImage(post);
+                    case "aiGenerated" -> imageService.processAIGeneratedImage(post, model, size, style, watermark);
+                    default -> imageService.processRandomImage(post);
+                };
+
+                return generationMono
                     .flatMap(imageUrl -> {
-                        // 更新文章封面
+                        // 重新获取最新的 Post 对象，避免版本冲突
                         return client.fetch(Post.class, postName)
                             .flatMap(latestPost -> {
                                 latestPost.getSpec().setCover(imageUrl);
                                 return client.update(latestPost)
-                                    .doOnSuccess(p -> {
-                                        log.info("文章[{}]封面图更新成功: {}", p.getSpec().getTitle(), imageUrl);
-                                        TaskStatus status = taskStatusMap.get(postName);
-                                        if (status != null) {
-                                            status.status = "success";
-                                            status.message = "封面图生成成功";
-                                            status.imageUrl = imageUrl;
-                                        }
-                                    });
+                                    .thenReturn(imageUrl); // 返回生成的图片 URL
                             });
                     });
             })
-            .doOnError(e -> {
+            .flatMap(imageUrl -> ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(CoverGenerationResponse.builder()
+                    .status("success")
+                    .message("封面图生成成功")
+                    .imageUrl(imageUrl)
+                    .build()))
+            .onErrorResume(e -> {
                 log.error("生成封面图失败: {}", e.getMessage());
-                TaskStatus status = taskStatusMap.get(postName);
-                if (status != null) {
-                    status.status = "failed";
-                    status.message = "生成失败: " + e.getMessage();
-                }
-            })
-            .subscribe();
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(createResponse("generating", "已开始生成封面图...", null));
+                return ServerResponse.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(CoverGenerationResponse.builder()
+                        .status("failed")
+                        .message("生成失败: " + e.getMessage())
+                        .build());
+            });
     }
 
     /**
-     * 查询生成状态
+     * 上传封面图并设置到文章
      */
-    private Mono<ServerResponse> getStatus(ServerRequest request) {
-        String postName = request.pathVariable("postName");
-
-        TaskStatus status = taskStatusMap.get(postName);
-        if (status == null) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(createResponse("idle", "没有进行中的任务", null));
-        }
-
-        // 清理已完成超过5分钟的任务
-        if (("success".equals(status.status) || "failed".equals(status.status))
-            && System.currentTimeMillis() - status.startTime > 300000) {
-            taskStatusMap.remove(postName);
-        }
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(createResponse(status.status, status.message, status.imageUrl));
-    }
-
-    private Map<String, Object> createResponse(String status, String message, String imageUrl) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", status);
-        response.put("message", message);
-        if (imageUrl != null) {
-            response.put("imageUrl", imageUrl);
-        }
-        return response;
+    private Mono<ServerResponse> uploadCover(ServerRequest request) {
+        return request.bodyToMono(UploadCoverRequest.class)
+            .flatMap(uploadRequest -> {
+                String postName = uploadRequest.getPostName();
+                String imageContent = uploadRequest.getImageContent();
+                
+                log.info("收到上传封面图请求，文章: {}", postName);
+                
+                return client.fetch(Post.class, postName)
+                    .flatMap(post -> imageService.uploadCoverImage(imageContent, post)
+                        .flatMap(imageUrl -> {
+                            // 重新获取最新的 Post 对象，设置封面
+                            return client.fetch(Post.class, postName)
+                                .flatMap(latestPost -> {
+                                    latestPost.getSpec().setCover(imageUrl);
+                                    return client.update(latestPost)
+                                        .thenReturn(imageUrl);
+                                });
+                        }));
+            })
+            .flatMap(imageUrl -> ServerResponse.ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .bodyValue(imageUrl))
+            .onErrorResume(e -> {
+                log.error("上传封面图失败: {}", e.getMessage());
+                return ServerResponse.badRequest()
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .bodyValue("上传失败: " + e.getMessage());
+            });
     }
 }

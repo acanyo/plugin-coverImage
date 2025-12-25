@@ -31,7 +31,19 @@ public interface ImageService {
     /**
      * 处理 AI 生成图片
      * @param post 文章对象
+     * @param model 模型名称
+     * @param size 图片尺寸
+     * @param style 图片风格
+     * @param watermark 是否添加水印
      * @return 处理后的图片URL
      */
-    Mono<String> processAIGeneratedImage(Post post);
+    Mono<String> processAIGeneratedImage(Post post, String model, String size, String style, boolean watermark);
+
+    /**
+     * 上传封面图片
+     * @param imageContent 图片内容（URL、Base64 或 SVG）
+     * @param post 文章对象
+     * @return 上传后的图片URL
+     */
+    Mono<String> uploadCoverImage(String imageContent, Post post);
 } 

@@ -19,13 +19,8 @@ public interface SettingConfigGetter {
     @Data
     class AIConfig {
         public static final String GROUP = "ai";
-        private String apiBaseUrl = "https://api.djxx.club";
+        private String apiBaseUrl = "https://api.codesphere.chat";
         private String apiKey;
-        private String model = "nano-banana-2-2k";
         private String promptTemplate = "为这篇博客文章生成一张精美的封面图片。文章标题：{title}。文章内容摘要：{content}";
-        private String aspectRatio = "16:9";
-        private String imageSize = "";
-        private Integer timeoutSeconds = 180;
-        private Integer pollIntervalMs = 2000;
     }
 }

@@ -33,7 +33,7 @@ public class ImgServiceImpl implements ImgService {
                     case "randomImg" -> imageService.processRandomImage(post);
                     case "firstPostImg" -> imageService.processFirstPostImage(post);
                     case "customizeImg" -> imageService.processCustomizeImage(post);
-                    case "aiGenerated" -> imageService.processAIGeneratedImage(post);
+                    case "aiGenerated" -> imageService.processAIGeneratedImage(post, "doubao-seedream-4.5", "2560x1440", "默认", false);
                     default -> Mono.error(new IllegalArgumentException("未找到对应的图片处理策略: " + imgType));
                 };
             })
