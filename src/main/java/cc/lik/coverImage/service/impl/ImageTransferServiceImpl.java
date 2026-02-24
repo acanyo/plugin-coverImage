@@ -131,7 +131,11 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private String getFileName(String url) {
         String[] parts = url.split("/");
-        return parts[parts.length - 1];
+        String fileName = parts[parts.length - 1];
+        if (fileName.contains("?")) {
+            fileName = fileName.substring(0, fileName.indexOf("?"));
+        }
+        return fileName;
     }
 
     private MediaType getMediaType(String fileName) {
