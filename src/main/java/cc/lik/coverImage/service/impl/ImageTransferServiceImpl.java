@@ -22,6 +22,7 @@ import run.halo.app.core.extension.service.AttachmentService;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.core.extension.User;
 
+import java.net.URI;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
@@ -155,7 +156,7 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private Mono<Flux<DataBuffer>> downloadImage(WebClient webClient, String url) {
         return Mono.just(webClient.get()
-            .uri(url)
+            .uri(URI.create(url))
             .header("User-Agent", "curl/8.12.1")
             .header("Accept", "*/*")
             .retrieve()
