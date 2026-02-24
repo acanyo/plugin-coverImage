@@ -7,4 +7,6 @@ public interface AIImageGenerator {
 
     Mono<String> generateImage(Post post, String size, String style, boolean watermark);
 
+    String supportAiProvider();
+
 }

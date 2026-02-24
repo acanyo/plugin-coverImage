@@ -158,7 +158,6 @@ spec:
               padding: "12px"
               background: "#f9f9f9"
               borderRadius: "8px"
-              display: "none"
           children:
             - $el: h5
               children: "CodeSphere API 配置"

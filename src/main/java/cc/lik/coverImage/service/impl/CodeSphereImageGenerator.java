@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.content.Post;
 
 @Slf4j
-@Service("codesphere")
+@Service
 @RequiredArgsConstructor
 public class CodeSphereImageGenerator extends AbstractAIImageGenerator {
 
@@ -46,6 +46,11 @@ public class CodeSphereImageGenerator extends AbstractAIImageGenerator {
             return callDoubaoApi(config, prompt, model, size, watermark)
                 .flatMap(imageUrl -> imageTransferService.updateFile(imageUrl, post));
         }
+    }
+
+    @Override
+    public String supportAiProvider() {
+        return "codesphere";
     }
 
     /**

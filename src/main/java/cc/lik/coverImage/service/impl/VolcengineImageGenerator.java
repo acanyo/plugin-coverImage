@@ -23,7 +23,7 @@ import run.halo.app.core.extension.content.Post;
  */
 
 @Slf4j
-@Service("volcengine")
+@Service
 @RequiredArgsConstructor
 public class VolcengineImageGenerator extends AbstractAIImageGenerator {
 
@@ -39,6 +39,11 @@ public class VolcengineImageGenerator extends AbstractAIImageGenerator {
             StringUtils.defaultIfBlank(config.getVolcModel(), "doubao-seedream-4-5-251128");
         return callVolcengineApi(config, prompt, actualModel, size)
             .flatMap(imageUrl -> imageTransferService.updateFile(imageUrl, post));
+    }
+
+    @Override
+    public String supportAiProvider() {
+        return "volcengine";
     }
 
     /**
