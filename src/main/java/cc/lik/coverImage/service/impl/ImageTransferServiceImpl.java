@@ -82,10 +82,9 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private BiConsumer<Attachment, SynchronousSink<String>> uploadReturn() {
         return (uploadedAttachment, sink) -> {
-            if (uploadedAttachment != null && uploadedAttachment.getMetadata() != null
-                && uploadedAttachment.getMetadata().getAnnotations() != null) {
-                String uploadedUri =
-                    uploadedAttachment.getMetadata().getAnnotations().get("storage.halo.run/uri");
+            if (uploadedAttachment != null && uploadedAttachment.getStatus() != null
+                && uploadedAttachment.getStatus().getPermalink() != null) {
+                String uploadedUri = uploadedAttachment.getStatus().getPermalink();
                 log.info("图片上传成功: {}", uploadedUri);
                 sink.next(uploadedUri);
             } else {
