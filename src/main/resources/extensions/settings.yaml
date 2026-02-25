@@ -106,19 +106,74 @@ spec:
                 height: "14px"
                 style:
                   margin-left: "4px"
-        - $formkit: text
-          name: apiBaseUrl
-          key: apiBaseUrl
-          id: apiBaseUrl
-          label: API 基础地址
-          value: "https://api.codesphere.chat"
-          help: "CodeSphere API 的基础地址"
-        - $formkit: password
-          name: apiKey
-          key: apiKey
-          id: apiKey
-          label: API Key
-          help: "CodeSphere API Token (Bearer Token)"
+        - $formkit: select
+          name: aiProvider
+          key: aiProvider
+          id: aiProvider
+          label: AI 服务提供商
+          validation: required
+          value: "volcengine"
+          placeholder: 请选择 AI 服务提供商
+          options:
+            - label: "火山方舟"
+              value: "volcengine"
+            - label: "CodeSphere (旧版)"
+              value: "codesphere"
+        - $el: div
+          attrs:
+            class: "volcengine-config"
+            style:
+              marginTop: "12px"
+              padding: "12px"
+              background: "#f5f5f5"
+              borderRadius: "8px"
+          children:
+            - $el: h5
+              children: "火山方舟 API 配置"
+            - $formkit: text
+              name: volcApiBaseUrl
+              key: volcApiBaseUrl
+              id: volcApiBaseUrl
+              label: API 基础地址
+              value: "https://ark.cn-beijing.volces.com/api/v3"
+              help: "火山方舟 API 基础地址"
+            - $formkit: password
+              name: volcApiKey
+              key: volcApiKey
+              id: volcApiKey
+              label: API Key
+              help: "火山方舟 API Key (Bearer Token)"
+            - $formkit: text
+              name: volcModel
+              key: volcModel
+              id: volcModel
+              label: AI 模型名称
+              value: "doubao-seedream-4-5-251128"
+              help: "AI 模型名称"
+        - $el: div
+          attrs:
+            class: "codesphere-config"
+            style:
+              marginTop: "12px"
+              padding: "12px"
+              background: "#f9f9f9"
+              borderRadius: "8px"
+          children:
+            - $el: h5
+              children: "CodeSphere API 配置"
+            - $formkit: text
+              name: apiBaseUrl
+              key: apiBaseUrl
+              id: apiBaseUrl
+              label: API 基础地址
+              value: "https://api.codesphere.chat"
+              help: "CodeSphere API 的基础地址"
+            - $formkit: password
+              name: apiKey
+              key: apiKey
+              id: apiKey
+              label: API Key
+              help: "CodeSphere API Token (Bearer Token)"
         - $formkit: textarea
           name: promptTemplate
           key: promptTemplate

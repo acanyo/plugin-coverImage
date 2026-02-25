@@ -22,6 +22,7 @@ import run.halo.app.core.extension.service.AttachmentService;
 import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.core.extension.User;
 
+import java.net.URI;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
@@ -82,10 +83,9 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private BiConsumer<Attachment, SynchronousSink<String>> uploadReturn() {
         return (uploadedAttachment, sink) -> {
-            if (uploadedAttachment != null && uploadedAttachment.getMetadata() != null
-                && uploadedAttachment.getMetadata().getAnnotations() != null) {
-                String uploadedUri =
-                    uploadedAttachment.getMetadata().getAnnotations().get("storage.halo.run/uri");
+            if (uploadedAttachment != null && uploadedAttachment.getStatus() != null
+                && uploadedAttachment.getStatus().getPermalink() != null) {
+                String uploadedUri = uploadedAttachment.getStatus().getPermalink();
                 log.info("图片上传成功: {}", uploadedUri);
                 sink.next(uploadedUri);
             } else {
@@ -132,7 +132,11 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private String getFileName(String url) {
         String[] parts = url.split("/");
-        return parts[parts.length - 1];
+        String fileName = parts[parts.length - 1];
+        if (fileName.contains("?")) {
+            fileName = fileName.substring(0, fileName.indexOf("?"));
+        }
+        return fileName;
     }
 
     private MediaType getMediaType(String fileName) {
@@ -152,7 +156,7 @@ public class ImageTransferServiceImpl implements ImageTransferService {
 
     private Mono<Flux<DataBuffer>> downloadImage(WebClient webClient, String url) {
         return Mono.just(webClient.get()
-            .uri(url)
+            .uri(URI.create(url))
             .header("User-Agent", "curl/8.12.1")
             .header("Accept", "*/*")
             .retrieve()

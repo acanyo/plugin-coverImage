@@ -68,13 +68,13 @@ public class CoverImageEndpoint implements CustomEndpoint {
     private Mono<ServerResponse> generateCover(ServerRequest request) {
         String postName = request.pathVariable("postName");
         String type = request.queryParam("type").orElse("randomImg");
-        String model = request.queryParam("model").orElse("doubao-seedream-4.5");
+        // String model = request.queryParam("model").orElse("doubao-seedream-4.5");
         String size = request.queryParam("size").orElse("2560x1440");
         String style = request.queryParam("style").orElse("默认");
         boolean watermark = Boolean.parseBoolean(request.queryParam("watermark").orElse("false"));
         
-        log.info("收到生成封面图请求，文章: {}, 类型: {}, 模型: {}, 尺寸: {}, 风格: {}, 水印: {}", 
-            postName, type, model, size, style, watermark);
+        log.info("收到生成封面图请求，文章: {}, 类型: {}, 尺寸: {}, 风格: {}, 水印: {}",
+            postName, type, size, style, watermark);
 
         // 使用 Mono 链式调用，直到生成完成才返回
         return client.fetch(Post.class, postName)
@@ -83,7 +83,7 @@ public class CoverImageEndpoint implements CustomEndpoint {
                 
                 Mono<String> generationMono = switch (type) {
                     case "firstPostImg" -> imageService.processFirstPostImage(post);
-                    case "aiGenerated" -> imageService.processAIGeneratedImage(post, model, size, style, watermark);
+                    case "aiGenerated" -> imageService.processAIGeneratedImage(post, size, style, watermark);
                     default -> imageService.processRandomImage(post);
                 };
 

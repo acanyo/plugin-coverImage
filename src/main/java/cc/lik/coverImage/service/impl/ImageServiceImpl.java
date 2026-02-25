@@ -1,9 +1,8 @@
 package cc.lik.coverImage.service.impl;
 
 import cc.lik.coverImage.constant.ImageConstants;
-import cc.lik.coverImage.dto.CoverImageRequest;
 import cc.lik.coverImage.model.ImageType;
-import cc.lik.coverImage.service.CodeSphereService;
+import cc.lik.coverImage.service.AIImageGenerator;
 import cc.lik.coverImage.service.CoverImageGenerator;
 import cc.lik.coverImage.service.ImageService;
 import cc.lik.coverImage.service.ImageTransferService;
@@ -11,10 +10,24 @@ import cc.lik.coverImage.service.SettingConfigGetter;
 import cc.lik.coverImage.util.ImageUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -29,26 +42,18 @@ import run.halo.app.content.PostContentService;
 import run.halo.app.core.extension.content.Post;
 import run.halo.app.extension.ReactiveExtensionClient;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ImageServiceImpl implements ImageService {
+public class ImageServiceImpl implements ImageService, InitializingBean {
     private final SettingConfigGetter settingConfigGetter;
     private final PostContentService postContentService;
     private final ImageTransferService imageTransferService;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final CoverImageGenerator coverImageGenerator;
-    private final CodeSphereService codeSphereService;
+    private Map<String, AIImageGenerator> aiImageGeneratorMap;
+    private final List<AIImageGenerator> aiImageGenerators;
     private final ReactiveExtensionClient client;
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
@@ -310,9 +315,30 @@ public class ImageServiceImpl implements ImageService {
         return new ImageType.UnknownImage();
     }
     @Override
-    public Mono<String> processAIGeneratedImage(Post post, String model, String size, String style, boolean watermark) {
-        log.info("使用 AI 生成图片策略处理文章: {}, 模型: {}, 尺寸: {}, 风格: {}, 水印: {}",
-            post.getSpec().getTitle(), model, size, style, watermark);
-        return codeSphereService.generateImage(post, model, size, style, watermark);
+    public Mono<String> processAIGeneratedImage(Post post, String size, String style, boolean watermark) {
+        log.info("使用 AI 生成图片策略处理文章: {}, 尺寸: {}, 风格: {}, 水印: {}",
+            post.getSpec().getTitle(), size, style, watermark);
+        return settingConfigGetter.getAIConfig()
+            .switchIfEmpty(Mono.error(new IllegalStateException("无法获取 AI 配置")))
+            .flatMap(config -> {
+                String aiProvider = config.getAiProvider();
+                log.info("当前使用 AI 生成平台: {}, 支持平台: {}", aiProvider, aiImageGeneratorMap.keySet());
+                if (StringUtils.isBlank(aiProvider)) {
+                    return Mono.error(new IllegalStateException("未配置 AI 生成平台"));
+                }
+                AIImageGenerator imageGenerator = aiImageGeneratorMap.get(aiProvider);
+                if (Objects.isNull(imageGenerator)) {
+                    return Mono.error(new IllegalStateException("未找到对应的 AI 生成平台"));
+                }
+                return imageGenerator.generateImage(post, size, style, watermark);
+            })
+            .doOnSuccess(url -> log.info("AI 封面图生成成功: {}", url))
+            .doOnError(e -> log.error("AI 封面图生成失败: {}", e.getMessage()));
     }
-} 
+
+    @Override
+    public void afterPropertiesSet() {
+        this.aiImageGeneratorMap = this.aiImageGenerators.stream()
+            .collect(Collectors.toMap(AIImageGenerator::supportAiProvider, Function.identity()));
+    }
+}
