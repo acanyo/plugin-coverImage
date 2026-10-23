@@ -4,17 +4,9 @@ on:
   release:
     types:
       - published
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "已有 GitHub Release 的标签（重新同步到 Halo 应用市场）"
-        required: true
-        default: "v1.2.0"
-        type: string
 
 jobs:
   cd:
-    if: github.event_name == 'release'
     uses: halo-sigs/reusable-workflows/.github/workflows/plugin-cd.yaml@v4
     secrets:
       halo-pat: ${{ secrets.HALO_PAT }}
@@ -22,32 +14,6 @@ jobs:
       contents: write
     with:
       node-version: "24"
-      pnpm-version: "9"
-      java-version: "21"
+      pnpm-version: ""
       app-id: app-ff0vsgge
-      ui-path: "ui"
-
-  retry-appstore:
-    name: Resync existing release to App Store
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Download published release
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.id')
-          printf 'release-id=%s\n' "$release_id" >> "$GITHUB_OUTPUT"
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.jar' --dir build/libs
-      - name: Release to App Store
-        uses: halo-sigs/app-store-release-action@v4
-        with:
-          github-token: ${{ github.token }}
-          app-id: app-ff0vsgge
-          release-id: ${{ steps.release.outputs.release-id }}
-          assets-dir: build/libs
-          halo-pat: ${{ secrets.HALO_PAT }}
+      ui-path: "."
