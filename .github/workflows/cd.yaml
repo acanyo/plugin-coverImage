@@ -15,5 +15,6 @@ jobs:
     with:
       node-version: "22"
       pnpm-version: "9"
+      java-version: "21"
       app-id: app-ff0vsgge
       ui-path: "ui"
