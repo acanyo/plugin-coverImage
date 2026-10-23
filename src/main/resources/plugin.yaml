@@ -7,19 +7,21 @@ metadata:
   name: coverImage
 spec:
   enabled: true
-  requires: ">=2.22.1"
-  version: "1.1.0"
+  requires: ">=2.27.0"
+  pluginDependencies:
+    ai-foundation: ">=1.0.0 & <2.0.0"
+  version: "1.2.0"
   author:
     name: Handsome
     website: https://www.lik.cc/
   logo: logo.svg
-  homepage: https://github.com/acanyo/plugin-coverImage#readme
+  homepage: https://docs.lik.cc/plugins/cover-image/
   repo: https://github.com/acanyo/plugin-coverImage
   issues: https://github.com/acanyo/plugin-coverImage/issues
   settingName: plugin-coverImage-settings
   configMapName: plugin-coverImage-configmap
   displayName: "封面图"
-  description: "为你的halo文章提供默认封面图功能"
+  description: "为文章生成封面图，支持 AI 图像生成与提示词优化、可视化封面设计、随机图库和文章首图。"
   license:
     - name: "GPL-3.0"
       url: "https://github.com/acanyo/plugin-coverImage/blob/main/LICENSE"

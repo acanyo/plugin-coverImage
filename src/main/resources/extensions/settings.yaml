@@ -9,7 +9,7 @@ spec:
       formSchema:
         - $el: a
           attrs:
-            href: "https://docs.lik.cc/"
+            href: "https://docs.lik.cc/plugins/cover-image/"
             class: "py-4 block"
             target: "_blank"
             style:
@@ -68,62 +68,14 @@ spec:
             itemsField: items
             labelField: spec.displayName
             valueField: metadata.name
-        - $formkit: select
-          name: randomType
-          key: randomType
-          id: randomType
-          label: 随机图类型
-          validation: required
-          value: "acg"
-          placeholder: 请选择你的主题
-          options:
-            - label:  二次元
-              value: acg
-            - label: 风景
-              value: views
-            - label: 全类型4K
-              value: all4k
     - group: ai
       label: AI 生成设置
       formSchema:
-        - $el: a
-          attrs:
-            href: "https://api.codesphere.chat/register?aff=76JI"
-            class: "py-4 block"
-            target: "_blank"
-            style:
-              color: "#1890ff"
-              fontSize: "0.875em"
-              display: "flex"
-              align-items: "center"
-          children:
-            - $el: span
-              children: "前往 AI 网站注册 Token"
-            - $el: img
-              attrs:
-                src: "/plugins/coverImage/assets/static/img/link.svg"
-                width: "14px"
-                height: "14px"
-                style:
-                  margin-left: "4px"
-        - $formkit: text
-          name: apiBaseUrl
-          key: apiBaseUrl
-          id: apiBaseUrl
-          label: API 基础地址
-          value: "https://api.codesphere.chat"
-          help: "CodeSphere API 的基础地址"
-        - $formkit: password
-          name: apiKey
-          key: apiKey
-          id: apiKey
-          label: API Key
-          help: "CodeSphere API Token (Bearer Token)"
         - $formkit: textarea
           name: promptTemplate
           key: promptTemplate
           id: promptTemplate
-          label: 提示词模板
-          value: "为这篇博客文章生成一张精美的封面图片。文章标题：{title}。文章内容摘要：{content}"
-          help: "支持占位符: {title} 文章标题, {content} 文章内容"
-          rows: 3
+          label: 默认提示词
+          value: "请为这篇博客文章创作一张适合作为文章封面的横版图片。创作要求：准确提炼文章主题，突出核心概念；构图简洁、主体明确，适合 16:9 横版展示；使用高级、统一的视觉风格，保证主体清晰、层次分明；不要生成任何文字、字母、Logo、水印或边框；避免杂乱背景、低清晰度、畸形物体和重复元素。文章标题：{title}。文章内容摘要：{content}"
+          help: "生成页可临时覆盖此提示词；支持 {title} 和 {content} 占位符"
+          rows: 6

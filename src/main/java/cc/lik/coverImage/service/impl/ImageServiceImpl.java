@@ -1,13 +1,11 @@
 package cc.lik.coverImage.service.impl;
 
 import cc.lik.coverImage.constant.ImageConstants;
-import cc.lik.coverImage.dto.CoverImageRequest;
 import cc.lik.coverImage.model.ImageType;
-import cc.lik.coverImage.service.CodeSphereService;
 import cc.lik.coverImage.service.CoverImageGenerator;
 import cc.lik.coverImage.service.ImageService;
 import cc.lik.coverImage.service.ImageTransferService;
-import cc.lik.coverImage.service.SettingConfigGetter;
+import cc.lik.coverImage.service.AiImageGenerationService;
 import cc.lik.coverImage.util.ImageUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,82 +40,81 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ImageServiceImpl implements ImageService {
-    private final SettingConfigGetter settingConfigGetter;
     private final PostContentService postContentService;
     private final ImageTransferService imageTransferService;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final CoverImageGenerator coverImageGenerator;
-    private final CodeSphereService codeSphereService;
+    private final AiImageGenerationService aiImageGenerationService;
     private final ReactiveExtensionClient client;
 
     private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
-    private static final String API_ACG = "https://www.dmoe.cc/random.php?return=json";
+    private static final String API_ALCY = "https://t.alcy.cc/json?pc";
     private static final String API_BING = "https://api.xsot.cn/bing/?quality=1920x1080&mkt=zh-cn";
-    private static final String API_4K = "https://api.52vmy.cn/api/img/tu/pc";
     private final DataBufferFactory dataBufferFactory = DefaultDataBufferFactory.sharedInstance;
     private static final int BUFFER_SIZE = 8192;
     @Override
-    public Mono<String> processRandomImage(Post post) {
+    public Mono<String> processRandomImage(Post post, String requestedRandomType) {
         log.info("开始处理随机图片，文章标题: {}", post.getSpec().getTitle());
-        return settingConfigGetter.getBasicConfig()
-            .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
-            .flatMap(config -> {
-                String randomType = config.getRandomType();
-                log.info("获取到随机图片类型配置: {}", randomType);
-                if (randomType == null || randomType.isEmpty()) {
-                    log.error("随机图片类型未配置");
-                    return Mono.error(new IllegalStateException("未配置随机图片类型"));
-                }
+        String randomType = requestedRandomType == null || requestedRandomType.isBlank()
+            ? "alcy" : requestedRandomType;
+        log.info("使用随机图片类型: {}", randomType);
+        String apiUrl = switch (randomType) {
+            case "alcy" -> API_ALCY;
+            case "views" -> API_BING;
+            default -> {
+                log.warn("随机图片类型 [{}] 已废弃，改用栗次元随机图", randomType);
+                yield API_ALCY;
+            }
+        };
+        log.info("选择API地址: {}", apiUrl);
 
-                String apiUrl = switch (randomType) {
-                    case "acg" -> API_ACG;
-                    case "all4k" -> API_4K;
-                    default -> API_BING;
-                };
-                log.info("选择API地址: {}", apiUrl);
+        WebClient webClient = webClientBuilder.build();
+        log.info("开始请求API获取图片");
+        return webClient.get()
+            .uri(apiUrl)
+            .accept(TEXT_JSON)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .header("Accept", "application/json, text/plain, */*")
+            .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+            .header("Connection", "keep-alive")
+            .header("Cache-Control", "no-cache")
+            .retrieve()
+            .bodyToMono(String.class)
+            .doOnNext(response -> log.info("API响应数据: {}", response))
+            .flatMap(jsonStr -> {
+                try {
+                    JsonNode json = objectMapper.readTree(jsonStr);
+                    String imgUrl;
 
-                WebClient webClient = webClientBuilder.build();
-                log.info("开始请求API获取图片");
-                return webClient.get()
-                    .uri(apiUrl)
-                    .accept(TEXT_JSON)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-                    .header("Accept", "application/json, text/plain, */*")
-                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-                    .header("Connection", "keep-alive")
-                    .header("Cache-Control", "no-cache")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .doOnNext(response -> log.info("API响应数据: {}", response))
-                    .flatMap(jsonStr -> {
-                        try {
-                            JsonNode json = objectMapper.readTree(jsonStr);
-                            String imgUrl;
-
-                            // 根据不同的 API 响应格式解析图片 URL
-                            if (apiUrl.contains("52vmy") || apiUrl.contains("dmoe.cc")) {
-                                if (json.get("code").asInt() != 200) {
-                                    return Mono.error(new IllegalStateException("获取图片失败: " + json.get("msg").asText()));
-                                }
-                                imgUrl = json.has("imgurl") ? json.get("imgurl").asText() : json.get("url").asText();
-                                log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
-                            }else if (apiUrl.contains("bing")) {
-                                imgUrl = json.get("data").get("image").asText();
-                                log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
-                            } else {
-                                return Mono.error(new IllegalStateException("不支持的随机图片类型"));
-                            }
-
-                            // 使用带有请求头的WebClient来下载图片
-                            return imageTransferService.updateFile(imgUrl,post)
-                                .doOnSuccess(url -> log.info("图片转存成功: {}", url))
-                                .doOnError(e -> log.error("图片转存失败: {}", e.getMessage()));
-                        } catch (Exception e) {
-                            log.error("解析JSON响应失败: {}", e.getMessage(), e);
-                            return Mono.error(e);
+                    // 根据不同的 API 响应格式解析图片 URL
+                    if (apiUrl.contains("t.alcy.cc")) {
+                        if (json.path("code").asInt() != 200) {
+                            return Mono.error(new IllegalStateException("获取图片失败: " + json.path("msg").asText()));
                         }
-                    });
+                        imgUrl = json.path("data").path("link").asText(null);
+                        if (imgUrl == null || imgUrl.isBlank()) {
+                            return Mono.error(new IllegalStateException("随机图片接口未返回图片链接"));
+                        }
+                        log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
+                    } else if (apiUrl.contains("bing")) {
+                        imgUrl = json.path("data").path("image").asText(null);
+                        if (imgUrl == null || imgUrl.isBlank()) {
+                            return Mono.error(new IllegalStateException("风景图片接口未返回图片链接"));
+                        }
+                        log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
+                    } else {
+                        return Mono.error(new IllegalStateException("不支持的随机图片类型"));
+                    }
+
+                    // 使用带有请求头的WebClient来下载图片
+                    return imageTransferService.updateFile(imgUrl, post)
+                        .doOnSuccess(url -> log.info("图片转存成功: {}", url))
+                        .doOnError(e -> log.error("图片转存失败: {}", e.getMessage()));
+                } catch (Exception e) {
+                    log.error("解析JSON响应失败: {}", e.getMessage(), e);
+                    return Mono.error(e);
+                }
             })
             .doOnError(e -> log.error("处理随机图片过程中发生错误: {}", e.getMessage(), e));
     }
@@ -310,9 +307,10 @@ public class ImageServiceImpl implements ImageService {
         return new ImageType.UnknownImage();
     }
     @Override
-    public Mono<String> processAIGeneratedImage(Post post, String model, String size, String style, boolean watermark) {
-        log.info("使用 AI 生成图片策略处理文章: {}, 模型: {}, 尺寸: {}, 风格: {}, 水印: {}",
-            post.getSpec().getTitle(), model, size, style, watermark);
-        return codeSphereService.generateImage(post, model, size, style, watermark);
+    public Mono<String> processAIGeneratedImage(Post post, String model, String size, String style,
+        String prompt) {
+        log.info("使用 AI 生成图片策略处理文章: {}, 模型: {}, 尺寸: {}, 风格: {}",
+            post.getSpec().getTitle(), model, size, style);
+        return aiImageGenerationService.generateImage(post, model, size, style, prompt);
     }
 } 

@@ -2,7 +2,6 @@ package cc.lik.coverImage.service.impl;
 
 import cc.lik.coverImage.service.ImgService;
 import cc.lik.coverImage.service.ImageService;
-import cc.lik.coverImage.service.SettingConfigGetter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,26 +16,22 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class ImgServiceImpl implements ImgService {
-    private final SettingConfigGetter settingConfigGetter;
     private final ReactiveExtensionClient client;
     private final ImageService imageService;
 
     @Override
     public Mono<Void> coverImg(Post post) {
-        return settingConfigGetter.getBasicConfig()
-            .switchIfEmpty(Mono.error(new IllegalStateException("无法获取基本配置")))
-            .flatMap(config -> {
-                String imgType = Optional.ofNullable(post.getMetadata().getAnnotations())
-                    .map(annotations -> annotations.get("coverImgType"))
-                    .orElse("randomImg");
-                return switch (imgType) {
-                    case "randomImg" -> imageService.processRandomImage(post);
-                    case "firstPostImg" -> imageService.processFirstPostImage(post);
-                    case "customizeImg" -> imageService.processCustomizeImage(post);
-                    case "aiGenerated" -> imageService.processAIGeneratedImage(post, "doubao-seedream-4.5", "2560x1440", "默认", false);
-                    default -> Mono.error(new IllegalArgumentException("未找到对应的图片处理策略: " + imgType));
-                };
-            })
+        String imgType = Optional.ofNullable(post.getMetadata().getAnnotations())
+            .map(annotations -> annotations.get("coverImgType"))
+            .orElse("randomImg");
+        Mono<String> imageMono = switch (imgType) {
+            case "randomImg" -> imageService.processRandomImage(post);
+            case "firstPostImg" -> imageService.processFirstPostImage(post);
+            case "customizeImg" -> imageService.processCustomizeImage(post);
+            case "aiGenerated" -> imageService.processAIGeneratedImage(post, "", "2560x1440", "默认");
+            default -> Mono.error(new IllegalArgumentException("未找到对应的图片处理策略: " + imgType));
+        };
+        return imageMono
             .flatMap(imageUrl -> {
                 // 重新获取最新的文章数据
                 return client.fetch(Post.class, post.getMetadata().getName())

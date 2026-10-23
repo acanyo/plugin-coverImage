@@ -21,8 +21,7 @@ public class ImageConstants {
         ".jpg", MediaType.IMAGE_JPEG
     );
     
-    public static final String ERROR_NO_CONFIG = "未配置随机图片类型";
     public static final String ERROR_NO_IMAGE = "未找到文章中的图片";
     public static final String ERROR_INVALID_BASE64 = "Invalid base64 format";
     public static final String ERROR_UNSUPPORTED_FORMAT = "Unsupported image content format";
-} 
+}

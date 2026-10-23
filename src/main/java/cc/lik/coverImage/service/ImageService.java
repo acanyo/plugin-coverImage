@@ -10,9 +10,19 @@ public interface ImageService {
     /**
      * 处理随机图片
      * @param post 文章对象
+     * @param randomType 随机图片类型
      * @return 处理后的图片URL
      */
-    Mono<String> processRandomImage(Post post);
+    Mono<String> processRandomImage(Post post, String randomType);
+
+    /**
+     * 使用默认随机图片类型处理随机图片。
+     *
+     * <p>用于文章发布后的自动生成，此场景没有生成页面上下文。</p>
+     */
+    default Mono<String> processRandomImage(Post post) {
+        return processRandomImage(post, "alcy");
+    }
 
     /**
      * 处理文章首图
@@ -34,10 +44,16 @@ public interface ImageService {
      * @param model 模型名称
      * @param size 图片尺寸
      * @param style 图片风格
-     * @param watermark 是否添加水印
+     * @param prompt 本次生成使用的提示词模板
      * @return 处理后的图片URL
      */
-    Mono<String> processAIGeneratedImage(Post post, String model, String size, String style, boolean watermark);
+    Mono<String> processAIGeneratedImage(Post post, String model, String size, String style,
+        String prompt);
+
+    default Mono<String> processAIGeneratedImage(Post post, String model, String size,
+        String style) {
+        return processAIGeneratedImage(post, model, size, style, "");
+    }
 
     /**
      * 上传封面图片
@@ -46,4 +62,4 @@ public interface ImageService {
      * @return 上传后的图片URL
      */
     Mono<String> uploadCoverImage(String imageContent, Post post);
-} 
+}
