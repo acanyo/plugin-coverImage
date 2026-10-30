@@ -11,11 +11,13 @@ public class ImageConstants {
         "image/png", ".png",
         "image/gif", ".gif",
         "image/svg+xml", ".svg",
-        "image/jpeg", ".jpg"
+        "image/jpeg", ".jpg",
+        "image/webp", ".webp"
     );
     
     public static final Map<String, MediaType> EXTENSION_TO_MEDIA_TYPE = Map.of(
         ".png", MediaType.IMAGE_PNG,
+        ".webp", MediaType.parseMediaType("image/webp"),
         ".gif", MediaType.IMAGE_GIF,
         ".svg", MediaType.parseMediaType("image/svg+xml"),
         ".jpg", MediaType.IMAGE_JPEG

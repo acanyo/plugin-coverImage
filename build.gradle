@@ -14,6 +14,8 @@ dependencies {
     implementation platform('run.halo.tools.platform:plugin:2.27.0')
     compileOnly 'run.halo.app:api'
     compileOnly 'run.halo.aifoundation:api:1.0.0'
+    implementation 'com.github.usefulness:webp-imageio:0.11.0'
+    implementation 'com.drewnoakes:metadata-extractor:2.19.0'
 
     testImplementation 'run.halo.app:api'
     testImplementation 'run.halo.aifoundation:api:1.0.0'

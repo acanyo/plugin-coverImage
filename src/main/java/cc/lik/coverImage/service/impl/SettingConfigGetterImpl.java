@@ -22,4 +22,16 @@ public class SettingConfigGetterImpl implements SettingConfigGetter {
         return settingFetcher.fetch(AIConfig.GROUP, AIConfig.class)
             .defaultIfEmpty(new AIConfig());
     }
+
+    @Override
+    public Mono<ImageProcessingConfig> getImageProcessingConfig() {
+        return settingFetcher.fetch(ImageProcessingConfig.GROUP, ImageProcessingConfig.class)
+            .defaultIfEmpty(new ImageProcessingConfig());
+    }
+
+    @Override
+    public Mono<RandomImageConfig> getRandomImageConfig() {
+        return settingFetcher.fetch(RandomImageConfig.GROUP, RandomImageConfig.class)
+            .defaultIfEmpty(new RandomImageConfig());
+    }
 }

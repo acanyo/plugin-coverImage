@@ -7,8 +7,6 @@ import cc.lik.coverImage.service.ImageService;
 import cc.lik.coverImage.service.ImageTransferService;
 import cc.lik.coverImage.service.AiImageGenerationService;
 import cc.lik.coverImage.util.ImageUtils;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
@@ -19,20 +17,20 @@ import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebInputException;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import run.halo.app.content.PostContentService;
 import run.halo.app.core.extension.content.Post;
-import run.halo.app.extension.ReactiveExtensionClient;
+import cc.lik.coverImage.service.RandomImageService;
+import cc.lik.coverImage.service.SettingConfigGetter;
+import run.halo.app.infra.ExternalUrlSupplier;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,81 +40,18 @@ import java.util.regex.Pattern;
 public class ImageServiceImpl implements ImageService {
     private final PostContentService postContentService;
     private final ImageTransferService imageTransferService;
-    private final WebClient.Builder webClientBuilder;
-    private final ObjectMapper objectMapper;
+    private final RandomImageService randomImageService;
+    private final SettingConfigGetter settings;
+    private final ExternalUrlSupplier externalUrl;
     private final CoverImageGenerator coverImageGenerator;
     private final AiImageGenerationService aiImageGenerationService;
-    private final ReactiveExtensionClient client;
 
-    private static final MediaType TEXT_JSON = MediaType.parseMediaType("text/json;charset=UTF-8");
-    private static final String API_ALCY = "https://t.alcy.cc/json?pc";
-    private static final String API_BING = "https://api.xsot.cn/bing/?quality=1920x1080&mkt=zh-cn";
     private final DataBufferFactory dataBufferFactory = DefaultDataBufferFactory.sharedInstance;
     private static final int BUFFER_SIZE = 8192;
+
     @Override
     public Mono<String> processRandomImage(Post post, String requestedRandomType) {
-        log.info("开始处理随机图片，文章标题: {}", post.getSpec().getTitle());
-        String randomType = requestedRandomType == null || requestedRandomType.isBlank()
-            ? "alcy" : requestedRandomType;
-        log.info("使用随机图片类型: {}", randomType);
-        String apiUrl = switch (randomType) {
-            case "alcy" -> API_ALCY;
-            case "views" -> API_BING;
-            default -> {
-                log.warn("随机图片类型 [{}] 已废弃，改用栗次元随机图", randomType);
-                yield API_ALCY;
-            }
-        };
-        log.info("选择API地址: {}", apiUrl);
-
-        WebClient webClient = webClientBuilder.build();
-        log.info("开始请求API获取图片");
-        return webClient.get()
-            .uri(apiUrl)
-            .accept(TEXT_JSON)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-            .header("Accept", "application/json, text/plain, */*")
-            .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-            .header("Connection", "keep-alive")
-            .header("Cache-Control", "no-cache")
-            .retrieve()
-            .bodyToMono(String.class)
-            .doOnNext(response -> log.info("API响应数据: {}", response))
-            .flatMap(jsonStr -> {
-                try {
-                    JsonNode json = objectMapper.readTree(jsonStr);
-                    String imgUrl;
-
-                    // 根据不同的 API 响应格式解析图片 URL
-                    if (apiUrl.contains("t.alcy.cc")) {
-                        if (json.path("code").asInt() != 200) {
-                            return Mono.error(new IllegalStateException("获取图片失败: " + json.path("msg").asText()));
-                        }
-                        imgUrl = json.path("data").path("link").asText(null);
-                        if (imgUrl == null || imgUrl.isBlank()) {
-                            return Mono.error(new IllegalStateException("随机图片接口未返回图片链接"));
-                        }
-                        log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
-                    } else if (apiUrl.contains("bing")) {
-                        imgUrl = json.path("data").path("image").asText(null);
-                        if (imgUrl == null || imgUrl.isBlank()) {
-                            return Mono.error(new IllegalStateException("风景图片接口未返回图片链接"));
-                        }
-                        log.info("从 {} 获取到图片URL: {}", apiUrl, imgUrl);
-                    } else {
-                        return Mono.error(new IllegalStateException("不支持的随机图片类型"));
-                    }
-
-                    // 使用带有请求头的WebClient来下载图片
-                    return imageTransferService.updateFile(imgUrl, post)
-                        .doOnSuccess(url -> log.info("图片转存成功: {}", url))
-                        .doOnError(e -> log.error("图片转存失败: {}", e.getMessage()));
-                } catch (Exception e) {
-                    log.error("解析JSON响应失败: {}", e.getMessage(), e);
-                    return Mono.error(e);
-                }
-            })
-            .doOnError(e -> log.error("处理随机图片过程中发生错误: {}", e.getMessage(), e));
+        return randomImageService.generate(post, requestedRandomType);
     }
 
     @Override
@@ -153,11 +88,25 @@ public class ImageServiceImpl implements ImageService {
                 if (firstImgSrc == null || firstImgSrc.isEmpty()) {
                     return Mono.error(new IllegalStateException("未找到文章中的图片"));
                 }
-                return Mono.just(firstImgSrc);
+                String imageUrl = firstImgSrc;
+                return settings.getImageProcessingConfig().flatMap(config -> {
+                    if (!config.isEnabled()) {
+                        return Mono.just(imageUrl);
+                    }
+                    if (imageUrl.startsWith("data:")) {
+                        return uploadCoverImage(imageUrl, post);
+                    }
+                    String absoluteUrl = imageUrl.startsWith("/")
+                        ? java.net.URI.create(externalUrl.getRaw().toString()).resolve(imageUrl).toString() : imageUrl;
+                    return imageTransferService.updateFile(absoluteUrl, post);
+                });
             })
             .switchIfEmpty(Mono.error(new IllegalStateException("无法获取文章内容")))
             .onErrorResume(e -> {
                 log.error("提取文章图片失败: {}", e.getMessage());
+                if (e instanceof ResponseStatusException) {
+                    return Mono.error(e);
+                }
                 return Mono.error(new ServerWebInputException("获取文章内容时出错: " + e.getMessage()));
             });
     }
@@ -222,21 +171,7 @@ public class ImageServiceImpl implements ImageService {
     }
 
     private Mono<String> uploadFromUrl(Post post, String imageUrl) {
-        return Mono.fromCallable(() -> {
-                var uri = new URI(imageUrl);
-                return new InputStreamResource(uri.toURL().openStream());
-            })
-            .flatMap(resource -> {
-                var dataBufferFlux = DataBufferUtils.read(resource, dataBufferFactory, BUFFER_SIZE);
-                return imageTransferService.updateFile(dataBufferFlux, post,
-                    ImageConstants.COVER_PREFIX + System.currentTimeMillis() + ImageUtils.getFileExtension(imageUrl),
-                    ImageUtils.getMediaTypeFromUrl(imageUrl));
-            })
-            .subscribeOn(Schedulers.boundedElastic())
-            .onErrorResume(e -> {
-                log.error("Failed to upload image from URL: {}", imageUrl, e);
-                return Mono.error(new RuntimeException("上传图片失败: " + e.getMessage(), e));
-            });
+        return imageTransferService.updateFile(imageUrl, post);
     }
 
     private Mono<String> uploadFromBase64(Post post, String base64Content, MediaType mediaType) {

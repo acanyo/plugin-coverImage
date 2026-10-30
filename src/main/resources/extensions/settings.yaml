@@ -68,6 +68,94 @@ spec:
             itemsField: items
             labelField: spec.displayName
             valueField: metadata.name
+    - group: imageProcessing
+      label: 图片压缩与 WebP
+      formSchema:
+        - $formkit: switch
+          name: enabled
+          id: coverImageProcessingEnabled
+          label: 启用图片处理
+          value: false
+          help: "处理本插件新生成、获取或提取的封面；需要先配置附件存储策略，不修改已有正文图片。GIF、动态 WebP/APNG 和 SVG 保留原文件。"
+        - $formkit: select
+          if: "$get(coverImageProcessingEnabled).value === true"
+          name: outputFormat
+          label: 输出格式
+          value: webp
+          options:
+            - label: WebP
+              value: webp
+            - label: 保留原格式
+              value: original
+          help: "支持 JPEG、PNG、WebP；转换 WebP 时保留透明背景。保留原格式且处理后更大时使用原文件。"
+        - $formkit: number
+          if: "$get(coverImageProcessingEnabled).value === true"
+          name: quality
+          label: 图片质量
+          value: 80
+          min: 1
+          max: 100
+          step: 1
+          validation: required|number|min:1|max:100
+          help: "JPEG / WebP 的有损质量，范围 1–100；PNG 使用无损压缩。"
+        - $formkit: number
+          if: "$get(coverImageProcessingEnabled).value === true"
+          name: maxWidth
+          label: 最大宽度（像素）
+          value: 1920
+          min: 0
+          max: 8192
+          step: 1
+          validation: required|number|min:0|max:8192
+          help: "超过此宽度时按比例缩小，不放大小图；填写 0 保留原尺寸。单张图片最大 16 MB / 4000 万像素。"
+    - group: random
+      label: 随机图设置
+      formSchema:
+        - $formkit: select
+          name: defaultSource
+          label: 默认随机图来源
+          value: alcy
+          options:
+            - label: 栗次元随机图
+              value: alcy
+            - label: 风景
+              value: views
+            - label: 自定义接口
+              value: custom
+          help: "用于发布时自动补齐封面，并作为生成面板的默认来源。"
+        - $formkit: verificationForm
+          action: /apis/console.api.coverimage.lik.cc/v1alpha1/random-image/test
+          label: 测试接口
+          children:
+            - $formkit: url
+              name: apiUrl
+              label: 自定义随机图接口
+              placeholder: https://example.com/random
+              help: "填写 GET 接口地址，支持直接图片、302 跳转图片、纯文本图片地址及 JSON。地址可包含查询参数。"
+            - $formkit: select
+              name: responseType
+              label: 接口返回类型
+              value: auto
+              options:
+                - label: 自动识别
+                  value: auto
+                - label: 图片文件
+                  value: image
+                - label: 纯文本图片地址
+                  value: url
+                - label: JSON
+                  value: json
+              help: "自动识别同时检查文件内容和 Content-Type，不依赖 URL 后缀。直接图片必须配置附件存储策略，以保存本次结果。"
+            - $formkit: text
+              name: jsonPath
+              label: JSON 取图路径
+              placeholder: data.url 或 data[0].url
+              validation: length:0,512
+              help: "留空识别 url、image、link 等常见字段。JSON 中有多个不同地址时需指定路径；支持 data.url、data[0].url、$.data.url、/data/0/url。选中数组时随机取一项。"
+        - $el: p
+          attrs:
+            class: "text-sm text-gray-500"
+          children: "使用当前填写的参数测试，无需先保存。绿色勾表示已获取到有效图片；失败时悬停错误标记查看原因。测试不上传附件、不修改文章，修改参数后请重新测试。"
     - group: ai
       label: AI 生成设置
       formSchema:

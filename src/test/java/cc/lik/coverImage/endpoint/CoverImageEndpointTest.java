@@ -101,4 +101,19 @@ class CoverImageEndpointTest {
             .exchange().expectStatus().isBadRequest();
         verifyNoInteractions(extensionClient, imageService);
     }
+
+    @Test
+    void customRandomProviderUsesSavedConfigurationAndSetsReturnedCover() {
+        Post post = new Post();
+        post.setSpec(new Post.PostSpec());
+        when(extensionClient.fetch(Post.class, "post")).thenReturn(Mono.just(post));
+        when(extensionClient.update(post)).thenReturn(Mono.just(post));
+        when(imageService.processRandomImage(post, "custom")).thenReturn(Mono.just("/upload/custom.webp"));
+
+        client.post().uri("/generate/post").contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(Map.of("type", "randomImg", "randomType", "custom"))
+            .exchange().expectStatus().isOk()
+            .expectBody().jsonPath("$.imageUrl").isEqualTo("/upload/custom.webp");
+        org.junit.jupiter.api.Assertions.assertEquals("/upload/custom.webp", post.getSpec().getCover());
+    }
 }

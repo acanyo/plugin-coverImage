@@ -21,7 +21,7 @@ public interface ImageService {
      * <p>用于文章发布后的自动生成，此场景没有生成页面上下文。</p>
      */
     default Mono<String> processRandomImage(Post post) {
-        return processRandomImage(post, "alcy");
+        return processRandomImage(post, null);
     }
 
     /**

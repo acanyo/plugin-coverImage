@@ -178,6 +178,9 @@
                     help="选择本次生成使用的随机图片来源。"
                   />
                 </div>
+                <p v-if="randomType === 'custom'" class="text-xs text-gray-500">
+                  使用插件「随机图设置」中保存的自定义接口；支持直接图片、图片地址和 JSON。
+                </p>
               </div>
 
               <!-- 文章首图 -->
@@ -299,6 +302,7 @@ const randomType = ref("alcy");
 const randomTypeOptions = [
   { label: "栗次元随机图", value: "alcy" },
   { label: "风景", value: "views" },
+  { label: "自定义接口", value: "custom" },
 ];
 const {
   options: effectiveSizeOptions,
@@ -363,7 +367,12 @@ async function loadDefaultPrompt() {
   promptDefaultsLoaded = true;
   try {
     const { data } = await consoleApiClient.plugin.plugin.fetchPluginJsonConfig({ name: "coverImage" });
-    const template = (data as { ai?: { promptTemplate?: string } }).ai?.promptTemplate;
+    const config = data as { ai?: { promptTemplate?: string }; random?: { defaultSource?: string } };
+    const template = config.ai?.promptTemplate;
+    const source = config.random?.defaultSource;
+    if (source && randomType.value === "alcy" && randomTypeOptions.some(option => option.value === source)) {
+      randomType.value = source;
+    }
     if (template?.trim() && aiPrompt.value === defaultPrompt) {
       aiPrompt.value = template;
     }

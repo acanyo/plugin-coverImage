@@ -120,7 +120,7 @@ public class CoverImageEndpoint implements CustomEndpoint {
         }
         if (TYPE_RANDOM.equals(request.getType())
             && (request.getRandomType() == null
-                || !Set.of("alcy", "views").contains(request.getRandomType()))) {
+                || !Set.of("alcy", "views", "custom").contains(request.getRandomType()))) {
             return Mono.error(new ServerWebInputException("不支持的随机图片类型: " + request.getRandomType()));
         }
         if (request.getPrompt() != null && request.getPrompt().length() > MAX_PROMPT_LENGTH) {

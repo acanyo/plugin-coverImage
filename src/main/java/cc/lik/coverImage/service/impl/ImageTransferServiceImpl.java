@@ -1,173 +1,124 @@
 package cc.lik.coverImage.service.impl;
 
+import cc.lik.coverImage.image.ImageFile;
+import cc.lik.coverImage.image.ImageFormat;
+import cc.lik.coverImage.image.ImageOptimizer;
+import cc.lik.coverImage.image.RemoteImageClient;
 import cc.lik.coverImage.service.ImageTransferService;
 import cc.lik.coverImage.service.SettingConfigGetter;
+import cc.lik.coverImage.service.SettingConfigGetter.BasicConfig;
+import cc.lik.coverImage.service.SettingConfigGetter.ImageProcessingConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SynchronousSink;
 import reactor.core.scheduler.Schedulers;
-import run.halo.app.core.extension.attachment.Attachment;
+import run.halo.app.core.extension.User;
 import run.halo.app.core.extension.attachment.endpoint.SimpleFilePart;
 import run.halo.app.core.extension.content.Post;
 import run.halo.app.core.extension.service.AttachmentService;
 import run.halo.app.extension.ReactiveExtensionClient;
-import run.halo.app.core.extension.User;
 
-import java.net.URI;
-import java.util.function.BiConsumer;
-import java.util.regex.Pattern;
-
+/** Every stored cover, regardless of its source, passes through the same image processing step. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageTransferServiceImpl implements ImageTransferService {
-    private final SettingConfigGetter settingConfigGetter;
-    private final AttachmentService attachmentService;
-    private final WebClient.Builder webClientBuilder;
+    private final SettingConfigGetter settings;
+    private final AttachmentService attachments;
     private final ReactiveExtensionClient client;
-    private final DataBufferFactory dataBufferFactory = DefaultDataBufferFactory.sharedInstance;
-    private static final Pattern IMAGE_URL_PATTERN = Pattern.compile(".*\\.(jpg|jpeg|png|gif|webp|bmp)$", Pattern.CASE_INSENSITIVE);
+    private final RemoteImageClient remote;
+    private final ImageOptimizer optimizer;
 
     @Override
-    public Mono<String> updateFile(String picUrl, Post post) {
-        return getCurrentUser(post.getSpec().getOwner())
-            .flatMap(user -> {
-                log.info("用户[{}]开始处理图片: {}", user.getMetadata().getName(), picUrl);
-                return settingConfigGetter.getBasicConfig()
-                    .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
-                    .flatMap(config -> {
-                        // 检查配置是否完整
-                        if (config.getFilePolicy() == null || config.getFilePolicy().isEmpty()) {
-                            log.warn("未配置附件存储策略，直接使用原始URL: {}", picUrl);
-                            return Mono.just(picUrl);
+    public Mono<String> updateFile(String url, Post post) {
+        return Mono.zip(settings.getBasicConfig(), settings.getImageProcessingConfig())
+            .flatMap(config -> {
+                BasicConfig storage = config.getT1();
+                ImageProcessingConfig processing = config.getT2();
+                if (!hasPolicy(storage)) {
+                    return processing.isEnabled() ? Mono.error(missingPolicy()) : Mono.just(url);
+                }
+                return remote.fetch(url).flatMap(response -> {
+                    MediaType type = ImageFormat.detect(response.bytes());
+                    if (type == null) {
+                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                            "图片地址返回的内容不是有效图片"));
+                    }
+                    var file = new ImageFile(response.bytes(),
+                        "cover-" + System.currentTimeMillis() + ImageFormat.extension(type), type);
+                    return upload(file, post, storage, processing).onErrorResume(error -> {
+                        if (processing.isEnabled()) {
+                            return Mono.error(error);
                         }
-
-                        // 检查是否为图片URL，如果不是标准图片扩展名也尝试下载
-                        boolean isStandardImageUrl = isImageUrl(picUrl);
-                        log.info("URL是否为标准图片格式: {}, URL: {}", isStandardImageUrl, picUrl);
-
-                        // 从URL提取文件名，如果没有扩展名则添加.jpg
-                        String originalFileName = getFileName(picUrl);
-                        if (!originalFileName.contains(".")) {
-                            originalFileName = originalFileName + ".jpg";
-                        }
-                        final String fileName = originalFileName;
-                        final MediaType mediaType = getMediaType(fileName);
-
-                        log.info("开始下载图片，文件名: {}, 媒体类型: {}", fileName, mediaType);
-
-                        return downloadImage(webClientBuilder.build(), picUrl)
-                            .flatMap(dataBufferFlux -> {
-                                var file = new SimpleFilePart(fileName, dataBufferFlux, mediaType);
-                                log.info("开始上传图片到存储，策略: {}, 分组: {}", config.getFilePolicy(), config.getFileGroup());
-                                return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
-                                    .subscribeOn(Schedulers.boundedElastic());
-                            })
-                            .handle(uploadReturn())
-                            .onErrorResume(e -> {
-                                log.error("图片转存失败，使用原始URL: {}, 错误: {}", picUrl, e.getMessage(), e);
-                                return Mono.just(picUrl);
-                            });
+                        log.warn("图片转存失败，使用原始图片地址：{}", error.getMessage());
+                        return Mono.just(url);
                     });
+                });
             });
     }
 
-    private BiConsumer<Attachment, SynchronousSink<String>> uploadReturn() {
-        return (uploadedAttachment, sink) -> {
-            if (uploadedAttachment != null && uploadedAttachment.getStatus() != null
-                && uploadedAttachment.getStatus().getPermalink() != null) {
-                String uploadedUri = uploadedAttachment.getStatus().getPermalink();
-                log.info("图片上传成功: {}", uploadedUri);
-                sink.next(uploadedUri);
-            } else {
-                sink.error(new IllegalStateException("图片上传成功但无法获取URI"));
-            }
-        };
-    }
-
     @Override
-    public Mono<String> updateFile(Flux<DataBuffer> dataBufferFlux, Post post, String filename, MediaType mediaType) {
-        return getCurrentUser(post.getSpec().getOwner())
-            .flatMap(user -> {
-                log.info("用户[{}]开始处理图片数据流: {}", user.getMetadata().getName(), filename);
-                return settingConfigGetter.getBasicConfig()
-                    .switchIfEmpty(Mono.error(new RuntimeException("无法获取基本配置")))
-                    .flatMap(config -> {
-                        // 检查配置是否完整
-                        if (config.getFilePolicy() == null || config.getFilePolicy().isEmpty()) {
-                            log.warn("未配置附件存储策略，请在插件设置中配置");
-                            return Mono.error(new RuntimeException("请先在插件设置中配置附件存储策略"));
+    public Mono<String> updateFile(Flux<DataBuffer> content, Post post, String filename, MediaType mediaType) {
+        return Mono.zip(settings.getBasicConfig(), settings.getImageProcessingConfig())
+            .flatMap(config -> {
+                if (!hasPolicy(config.getT1())) {
+                    return Mono.error(missingPolicy());
+                }
+                return DataBufferUtils.join(content, RemoteImageClient.MAX_BYTES)
+                    .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "图片内容不能为空")))
+                    .map(buffer -> {
+                        try {
+                            byte[] bytes = new byte[buffer.readableByteCount()];
+                            buffer.read(bytes);
+                            MediaType actualType = ImageFormat.detect(bytes);
+                            if (actualType == null) {
+                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无法识别上传的图片内容");
+                            }
+                            return new ImageFile(bytes, filename.replaceFirst("\\.[^.]+$", "")
+                                + ImageFormat.extension(actualType), actualType);
+                        } finally {
+                            DataBufferUtils.release(buffer);
                         }
-                        
-                        var file = new SimpleFilePart(filename, dataBufferFlux, mediaType);
-                        log.info("开始上传图片到存储，策略: {}, 分组: {}", config.getFilePolicy(), config.getFileGroup());
-                        return attachmentService.upload(user.getMetadata().getName(), config.getFilePolicy(), config.getFileGroup(), file, null)
-                            .subscribeOn(Schedulers.boundedElastic());
                     })
-                    .handle(uploadReturn())
-                    .onErrorResume(e -> {
-                        log.error("图片处理失败: {}", e.getMessage());
-                        return Mono.error(e);
-                    });
+                    .flatMap(file -> upload(file, post, config.getT1(), config.getT2()))
+                    .onErrorMap(DataBufferLimitException.class, error -> new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE, "图片不能超过 16 MB", error));
             });
     }
 
-    private Mono<User> getCurrentUser(String userName) {
-        return client.get(User.class, userName)
-            .doOnError(e -> log.error("获取用户[{}]信息失败: {}", userName, e.getMessage()));
+    private Mono<String> upload(ImageFile input, Post post, BasicConfig storage, ImageProcessingConfig processing) {
+        return Mono.fromCallable(() -> optimizer.optimize(input, processing))
+            .subscribeOn(Schedulers.boundedElastic())
+            .flatMap(output -> client.get(User.class, post.getSpec().getOwner())
+                .flatMap(user -> {
+                    Flux<DataBuffer> bytes = Flux.defer(() -> Flux.just(
+                        DefaultDataBufferFactory.sharedInstance.wrap(output.bytes())));
+                    var part = new SimpleFilePart(output.filename(), bytes, output.mediaType());
+                    return attachments.upload(user.getMetadata().getName(), storage.getFilePolicy(),
+                        storage.getFileGroup(), part, null);
+                }))
+            .flatMap(attachment -> {
+                String url = attachment.getStatus() == null ? null : attachment.getStatus().getPermalink();
+                return url == null || url.isBlank() ? Mono.error(new IllegalStateException("图片上传成功但未返回永久链接"))
+                    : Mono.just(url);
+            });
     }
 
-    private boolean isImageUrl(String url) {
-        return url != null && IMAGE_URL_PATTERN.matcher(url).matches();
+    private boolean hasPolicy(BasicConfig config) {
+        return config.getFilePolicy() != null && !config.getFilePolicy().isBlank();
     }
 
-    private String getFileName(String url) {
-        String[] parts = url.split("/");
-        String fileName = parts[parts.length - 1];
-        if (fileName.contains("?")) {
-            fileName = fileName.substring(0, fileName.indexOf("?"));
-        }
-        return fileName;
+    private ResponseStatusException missingPolicy() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+            "请先在基本设置中配置附件存储策略，图片压缩和格式转换需要上传处理后的文件");
     }
-
-    private MediaType getMediaType(String fileName) {
-        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-            return MediaType.IMAGE_JPEG;
-        } else if (fileName.endsWith(".png")) {
-            return MediaType.IMAGE_PNG;
-        } else if (fileName.endsWith(".gif")) {
-            return MediaType.IMAGE_GIF;
-        } else if (fileName.endsWith(".webp")) {
-            return MediaType.parseMediaType("image/webp");
-        } else if (fileName.endsWith(".bmp")) {
-            return MediaType.parseMediaType("image/bmp");
-        }
-        return MediaType.APPLICATION_OCTET_STREAM;
-    }
-
-    private Mono<Flux<DataBuffer>> downloadImage(WebClient webClient, String url) {
-        return Mono.just(webClient.get()
-            .uri(URI.create(url))
-            .header("User-Agent", "curl/8.12.1")
-            .header("Accept", "*/*")
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::isError,
-                response -> response.bodyToMono(String.class).flatMap(errorBody -> {
-                    log.error("下载图片失败，状态码: {}", response.statusCode());
-                    return response.releaseBody().then(Mono.error(new RuntimeException("下载图片失败，状态码: " + response.statusCode())));
-                })
-            )
-            .bodyToFlux(DataBuffer.class)
-            .doOnError(e -> log.error("下载图片失败: {}", e.getMessage())));
-    }
-} 
+}
