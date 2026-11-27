@@ -60,7 +60,10 @@
           </div>
           <div class="form-row align-end">
             <div class="form-item" @click.stop @mousedown.stop @pointerdown.stop>
-              <FormKit type="color" v-model="config.iconBgColor" label="背景色" />
+              <FormKit type="color" v-model="config.iconBgColor" label="背景色" :disabled="config.iconBgTransparent" />
+            </div>
+            <div class="form-item icon-bg-option">
+              <FormKit type="checkbox" v-model="config.iconBgTransparent" label="透明背景" />
             </div>
             <div class="form-item flex-1">
               <label class="form-label">圆角 {{ config.iconRadius }}px</label>
@@ -144,6 +147,7 @@ const config = reactive({
   iconSvg: '' as string,
   customIconUrl: '',
   iconBgColor: '#FF1493',
+  iconBgTransparent: false,
   iconRadius: 40,
   bgPresetId: 28, // 默认紫色的盘子，-1 表示自定义
   customColor1: '#667eea',
@@ -322,15 +326,16 @@ function renderCanvas() {
 
   const iconSize = 200, iconX = (W - iconSize) / 2, iconY = 175
   
-  if (loadedIcon.value) {
-    // 有图片时：背景色填充整个区域，图片铺满（无边距）
+  if (!config.iconBgTransparent) {
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10
     ctx.fillStyle = config.iconBgColor
     roundRect(ctx, iconX, iconY, iconSize, iconSize, config.iconRadius)
     ctx.fill()
     ctx.restore()
-    
+  }
+
+  if (loadedIcon.value) {
     // 图片铺满整个图标区域
     ctx.save()
     roundRect(ctx, iconX, iconY, iconSize, iconSize, config.iconRadius)
@@ -339,14 +344,6 @@ function renderCanvas() {
     const sc = Math.max(iconSize / img.width, iconSize / img.height)
     const sw = img.width * sc, sh = img.height * sc
     ctx.drawImage(img, 0, 0, img.width, img.height, iconX + (iconSize - sw) / 2, iconY + (iconSize - sh) / 2, sw, sh)
-    ctx.restore()
-  } else {
-    // 无图片时：只显示背景色
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10
-    ctx.fillStyle = config.iconBgColor
-    roundRect(ctx, iconX, iconY, iconSize, iconSize, config.iconRadius)
-    ctx.fill()
     ctx.restore()
   }
 
@@ -493,6 +490,11 @@ onMounted(async () => {
 .form-item.flex-1 {
   flex: 1;
 }
+.icon-bg-option {
+  min-height: 36px;
+  justify-content: center;
+  white-space: nowrap;
+}
 .form-label {
   font-size: 12px;
   color: #6b7280;
@@ -630,7 +632,7 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 /* 统一 FormKit 输入框高度 */
-.config-panel :deep(.formkit-input) {
+.config-panel :deep(.formkit-input:not([type="checkbox"])) {
   height: 36px !important;
 }
 .bg-custom :deep(.formkit-outer),
